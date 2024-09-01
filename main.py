@@ -67,7 +67,6 @@ def sd_calculation(comp_states):
 
 
 if __name__ == '__main__':
-    #J_list=['2', '15', '20']
     E_zero = float(sys.argv[3])
     file_calc_name = sys.argv[1]
     file_exp_name = sys.argv[2]
@@ -80,17 +79,18 @@ if __name__ == '__main__':
 
     J_list = [str(states_calc[0].J)]
 
+    # for H2-16O
     # 0 ~ v1  1 ~ v2  2 ~ v3  3 ~ J  4 ~ Ka  5 ~ Kc  6 ~ E
-    #format_exp_h216o = formats.ExpFormatH216O(file_exp_name, J_list, 3)
-    #states_exp_h216o = format_exp_h216o.parse_file()
+    #format_exp = formats.ExpFormatH216O(file_exp_name, J_list, 3)
 
+    # for N2O
     # 0 ~ q1  1 ~ q2  2 ~ q3  3 ~ sym  4 ~ J  5 ~ E
-    format_exp_n2o = formats.ExpFormatN2O(file_exp_name, J_list, 4)
-    states_exp_n2o = format_exp_n2o.parse_file()
+    format_exp = formats.ExpFormatN2O(file_exp_name, J_list, 4)
 
-    comp_list = do_comparison(states_calc, states_exp_n2o, eps)
+    states_exp = format_exp.parse_file()
+    comp_list = do_comparison(states_calc, states_exp, eps)
     comp_list.write_to_file(out_file_comp_name)
-    states_exp_n2o.write_to_file(out_file_exp_name)
+    states_exp.write_to_file(out_file_exp_name)
 
     comp_states = comp_list.parse_file(out_file_comp_name)
     sd, Nsd = sd_calculation(comp_states)
