@@ -8,11 +8,13 @@ import formats
 import states
 
 
-def exp_number_det(states_calc, state_exp, eps):
+def exp_number_det(states_calc: states.States, state_exp, eps):
     sign = lambda x: math.copysign(1, x)
     status = states.Status.NOT_FOUND
     list_diff = []
     indx_next = 0
+    diff_oc_first = math.nan
+    sc_next = None
 
     for sc in states_calc:
         indx_next += 1
@@ -153,7 +155,7 @@ if __name__ == '__main__':
     else:
         forts.append(os.path.join(full_inp_folder, mode))
 
-    with open(os.path.join(full_out_folder, out_file_for_sds + "_eps=" + str(eps) + "_El=" + str(E_tr_l) + "_Eh=" + str(E_tr_h)+ ".txt"), 'a') as f_sd:
+    with open(os.path.join(full_out_folder, out_file_for_sds + "_eps=" + str(eps) + "_El=" + str(E_tr_l) + "_Eh=" + str(E_tr_h)+ ".txt"), 'w') as f_sd:
         forts.sort()
         for fort in forts:
             format_calc = formats.CalcFormat(fort, E_zero)
