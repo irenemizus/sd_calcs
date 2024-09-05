@@ -33,6 +33,10 @@ def exp_number_det(states_calc: states.States, state_exp, eps):
             if sign(diff_oc_first) != sign(diff_oc_next) or abs(diff_oc_first) <= abs(diff_oc_next):
                 break
 
+    if sc_next is None:
+        print("Something wrong is happening! Please check the file with experimental data!")
+        exit(1)
+
     if sc_next.N == len(states_calc):
         return None, states.ComparedState(0.0, state_exp.E, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn)
 
@@ -58,8 +62,9 @@ def do_comparison(states_calc, states_exp, eps):
 
 
 class StandDev:
-    def __init__(self, Nsd=0, Nout=0, sd=0.0):
+    def __init__(self, Nsd=0, Nout=0, sd=0.0, sd_out=0.0):
         self.sd = sd
+        self.sd_out = sd_out
         self.Nsd = Nsd
         self.Nout = Nout
 
@@ -76,18 +81,21 @@ def sd_calculation(comp_states, E_tr_l, E_tr_h):
                 sd_l.sd += cs.E_diff ** 2 * cs.w
             else:
                 sd_l.Nout += 1
+                sd_l.sd_out += cs.E_diff ** 2
         elif cs.E_exp >= E_tr_h:
             if cs.w > 0:
                 sd_h.Nsd += 1
                 sd_h.sd += cs.E_diff**2 * cs.w
             else:
                 sd_h.Nout += 1
+                sd_h.sd_out += cs.E_diff ** 2
         else:
             if cs.w > 0:
                 sd_m.Nsd += 1
                 sd_m.sd += cs.E_diff**2 * cs.w
             else:
                 sd_m.Nout += 1
+                sd_m.sd_out += cs.E_diff ** 2
 
     if sd_h.Nsd > 0:
         sd_h.sd = math.sqrt(sd_h.sd / sd_h.Nsd)
@@ -96,14 +104,23 @@ def sd_calculation(comp_states, E_tr_l, E_tr_h):
     if sd_l.Nsd > 0:
         sd_l.sd = math.sqrt(sd_l.sd / sd_l.Nsd)
 
+    if sd_h.Nout > 0:
+        sd_h.sd_out = math.sqrt(sd_h.sd_out / sd_h.Nout)
+    if sd_m.Nout > 0:
+        sd_m.sd_out = math.sqrt(sd_m.sd_out / sd_m.Nout)
+    if sd_l.Nout > 0:
+        sd_l.sd_out = math.sqrt(sd_l.sd_out / sd_l.Nout)
+
     return sd_l, sd_m, sd_h
+
 
 def write_sds_to_file(fo, sd_list):
     suffix = ["l", "m", "h"]
     s = 0
     for sd in sd_list:
         if sd.Nsd + sd.Nout > 0:
-            fo.write(f"\nsd_{suffix[s]} = {sd.sd}, N_{suffix[s]} = {sd.Nsd}, N_out_{suffix[s]} = {sd.Nout}")
+            Nout_rel = sd.Nout / (sd.Nsd + sd.Nout) * 100
+            fo.write(f"\nsd_{suffix[s]} = {sd.sd:.4f}, N_{suffix[s]} = {sd.Nsd}, sd_{suffix[s]}_out = {sd.sd_out:.4f}, N_out_{suffix[s]} = {sd.Nout}, N_out_rel_{suffix[s]} = {Nout_rel:.2f}%")
         s += 1
 
 
@@ -200,9 +217,23 @@ if __name__ == '__main__':
                 out_file_comp_name_full_sd = out_file_comp_name_split[0] + "+sd"
 
             shutil.copyfile(out_file_comp_name_full, out_file_comp_name_full_sd)
+
             sd_l, sd_m, sd_h = sd_calculation(comp_states, E_tr_l, E_tr_h)
             with open(out_file_comp_name_full_sd, 'a') as f:
                 write_sds_to_file(f, [sd_l, sd_m, sd_h])
+
+            if make_comp_files == 'False':
+                if len(out_file_comp_name_split) == 2:
+                    out_file_comp_name_full_sd_val = out_file_comp_name_split[0] + "+sd_valid." + \
+                                                     out_file_comp_name_split[1]
+                else:
+                    out_file_comp_name_full_sd_val = out_file_comp_name_split[0] + "+sd_valid"
+
+                comp_states_val = comp_list.write_to_file(out_file_comp_name_full_sd_val, filter_by=0.0)
+
+                sd_val_l, sd_val_m, sd_val_h = sd_calculation(comp_states_val, E_tr_l, E_tr_h)
+                with open(out_file_comp_name_full_sd_val, 'a') as f_val:
+                    write_sds_to_file(f_val, [sd_val_l, sd_val_m, sd_val_h])
 
 
             f_sd.write(f"\n\nJ = {J_list[0]}")

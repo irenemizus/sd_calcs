@@ -144,9 +144,14 @@ class ComparisonList:
     def __sort(self):
         return sorted(self.__comp_states, key=lambda x: (x.J, x.sym, x.E_exp))
 
-    def write_to_file(self, out_file_name):
+    def write_to_file(self, out_file_name, filter_by=-1.0):
         with open(out_file_name, 'w') as f:
-            for state in self.__comp_states:
+            if filter_by < 0.0:
+                states_to_write = self.__comp_states
+            else:
+                states_to_write = list(filter(lambda x: abs(x.w - filter_by) < 1e-3, self.__comp_states))
+
+            for state in states_to_write:
                 if len(state.qn) == 6:
                     f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} {9:5.2f} {10:3d} {11:2d} {12:2d} {13:10s}\n".format(
                         state.J, SymType(state.sym).name, state.N, state.E_exp, state.E_calc, state.E_diff,
@@ -161,6 +166,8 @@ class ComparisonList:
                 else:
                     print("By now only the formats with 4 and 6 quantum numbers are supported")
 
+        return states_to_write
+
     def parse_file(self, out_file_name):
         comp_states = []
         with open(out_file_name, 'r') as f:
@@ -169,21 +176,34 @@ class ComparisonList:
                 if len(list_values) == 14:
                     qn = QuantNumbersH216O(v1=int(list_values[6]), v2=int(list_values[7]), v3=int(list_values[8]),
                                            J=int(list_values[10]), Ka=int(list_values[11]), Kc=int(list_values[12]))
+                    status_txt = list_values[13]
                 elif len(list_values) == 12:
                     qn = QuantNumbersN2O(v1=int(list_values[6]), v2=int(list_values[7]), J=int(list_values[8]),
                                          l=int(list_values[10]))
+                    status_txt = list_values[11]
                 else:
                     print("By now only the formats with 4 and 6 quantum numbers are supported")
 
-                if list_values[9] == '1.00':
+                if status_txt == 'FOUND':
                     status = Status.FOUND
-                elif list_values[9] == '0.00':
-                    status = Status.NOT_FOUND
+                elif status_txt == 'OUTLIER':
+                    status = Status.OUTLIER
                 else:
                     status = Status.NOT_FOUND
 
+                if list_values[1] == 'A1':
+                    sym = SymType.A1
+                elif list_values[1] == 'A2':
+                    sym = SymType.A2
+                elif list_values[1] == 'B1':
+                    sym = SymType.B1
+                elif list_values[1] == 'B2':
+                    sym = SymType.B2
+                else:
+                    print("Only symmetry types A1, A2, B1, and B2 are supported")
+
                 comp_states.append(ComparedState(float(list_values[4]), float(list_values[3]), int(list_values[0]),
-                                                 list_values[1], int(list_values[2]), float(list_values[9]), float(list_values[5]),
+                                                 sym.value, int(list_values[2]), float(list_values[9]), float(list_values[5]),
                                                  status, qn))
 
         self.__comp_states = comp_states
