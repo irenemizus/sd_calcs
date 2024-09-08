@@ -63,7 +63,7 @@ class SymType(Enum):
 class States:
     def __init__(self, list_states):
         self.__states = list_states
-        self.__states = self.__sort()
+        self.__states = self.__sort()   # always sorted
 
     def __len__(self):
         return len(self.__states)
@@ -126,7 +126,7 @@ class ComparedState:
 class ComparisonList:
     def __init__(self, list_comp_states):
         self.__comp_states = list_comp_states
-        self.__comp_states = self.__sort()
+        self.__comp_states = self.__sort()   # always sorted
 
     def __len__(self):
         return len(self.__comp_states)
@@ -149,6 +149,7 @@ class ComparisonList:
             if filter_by < 0.0:
                 states_to_write = self.__comp_states
             else:
+                # write only the states with w = filter_by
                 states_to_write = list(filter(lambda x: abs(x.w - filter_by) < 1e-3, self.__comp_states))
 
             for state in states_to_write:

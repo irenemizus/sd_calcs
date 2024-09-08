@@ -61,6 +61,7 @@ class ExpFormat (Format):
         return read_lines
 
     def filter_Jlist_lines(self):
+        # It's possible to filter out experimental states with J values from the J_list
         return list(filter(lambda x: x[self.__J_place] in self.__J_list, self.__lines))
 
     def sym_definition(self, qns=None, lbl=''):
