@@ -31,6 +31,8 @@ class CalcFormat (Format):
                         line = f.readline().replace('D', 'E')
                         list_ens.extend(list(map(lambda x: float(x) * self.__au_to_cm - self.__Ezero, line.strip().split())))
                     for en in list_ens:
+                        if J == 0 and sym == 2:
+                            sym = 4
                         state = states.State(en, J, sym, N=list_ens.index(en) + 1)
                         list_states.append(state)
                 except ValueError:
@@ -73,38 +75,44 @@ class ExpFormatH216O (ExpFormat):
         ExpFormat.__init__(self, 'exp.h2-16o.fmt', file_name, J_list, J_place)
 
     def sym_definition(self, qns=None, lbl=''):
-        if not qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.A1.value
-        elif not qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.A1.value
-        elif qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.A1.value
-        elif qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.A1.value
-        elif not qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.A2.value
-        elif not qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.A2.value
-        elif qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.A2.value
-        elif qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.A2.value
-        elif not qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.B1.value
-        elif not qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.B1.value
-        elif qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.B1.value
-        elif qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.B1.value
-        elif not qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.B2.value
-        elif not qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
-            return states.SymType.B2.value
-        elif qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.B2.value
-        elif qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
-            return states.SymType.B2.value
+        if qns.J == 0:
+            if not qns.v3 % 2:
+                return states.SymType.A1.value
+            else:
+                return states.SymType.B2.value
+        else:
+            if not qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.A1.value
+            elif not qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.A1.value
+            elif qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.A1.value
+            elif qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.A1.value
+            elif not qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.A2.value
+            elif not qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.A2.value
+            elif qns.J % 2 and not qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.A2.value
+            elif qns.J % 2 and qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.A2.value
+            elif not qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.B1.value
+            elif not qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.B1.value
+            elif qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.B1.value
+            elif qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.B1.value
+            elif not qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.B2.value
+            elif not qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and qns.Kc % 2:
+                return states.SymType.B2.value
+            elif qns.J % 2 and not qns.v3 % 2 and qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.B2.value
+            elif qns.J % 2 and qns.v3 % 2 and not qns.Ka % 2 and not qns.Kc % 2:
+                return states.SymType.B2.value
 
     def parse_file(self):
         filtered_lines = self.filter_Jlist_lines()
