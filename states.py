@@ -144,8 +144,8 @@ class ComparisonList:
     def __sort(self):
         return sorted(self.__comp_states, key=lambda x: (x.J, x.sym, x.E_exp))
 
-    def write_to_file(self, out_file_name, filter_by=-1.0):
-        with open(out_file_name, 'w') as f:
+    def write_to_file(self, out_file_name, filter_by=-1.0, mode='w'):
+        with open(out_file_name, mode) as f:
             if filter_by < 0.0:
                 states_to_write = self.__comp_states
             else:

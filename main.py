@@ -230,6 +230,7 @@ if __name__ == '__main__':
     # Creating the file for sd values
     with open(os.path.join(full_out_folder, out_file_for_sds + "_eps=" + str(eps) + "_El=" + str(E_tr_l) + "_Eh=" + str(E_tr_h)+ ".txt"), 'w') as f_sd:
         forts.sort()
+        comp_states_allJ = []
         for fort in forts:
             # Obtaining calculated states for the given J
             format_calc = formats.CalcFormat(fort, E_zero, au_to_cm)
@@ -262,10 +263,12 @@ if __name__ == '__main__':
             # Generating full output file names
             out_file_comp_name_full = out_file_name_generation(full_out_folder, out_file_comp_name, J_list[0], mol_name)
             out_file_exp_name_full = out_file_name_generation(full_out_folder, out_file_exp_name, J_list[0], mol_name)
+            out_file_comp_name_full_allJ = out_file_name_generation(full_out_folder, out_file_comp_name, 'all', mol_name)
 
             # Generating output files with comparison results (for 'True' mode)
             if make_comp_files == 'True':
                 comp_list.write_to_file(out_file_comp_name_full)
+                comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a')
                 states_exp.write_to_file(out_file_exp_name_full)
 
             """
@@ -279,6 +282,7 @@ if __name__ == '__main__':
             # Parsing the pre-generated output file with comparison results
             if os.path.exists(out_file_comp_name_full):
                 comp_states = comp_list.parse_file(out_file_comp_name_full)
+                comp_states_allJ.extend(comp_states)
             else:
                 print("Can't find file with the comparison! Change the 'make_comp_files' flag to True")
                 exit(1)
@@ -317,5 +321,9 @@ if __name__ == '__main__':
             # Collecting sd values for all the J values of interest in one file
             f_sd.write(f"\n\nJ = {J_list[0]}")
             write_sds_to_file(f_sd, [sd_l, sd_m, sd_h])
+
+        sd_l_allJ, sd_m_allJ, sd_h_allJ = sd_calculation(comp_states_allJ, E_tr_l, E_tr_h)
+        f_sd.write(f"\n\nall Js:")
+        write_sds_to_file(f_sd, [sd_l_allJ, sd_m_allJ, sd_h_allJ])
 
 
