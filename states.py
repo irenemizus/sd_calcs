@@ -50,6 +50,7 @@ class SymType(Enum):
     A2 = 2
     B1 = 3
     B2 = 4
+    UKN = 5
 
     @staticmethod
     def from_int(i):
@@ -94,6 +95,38 @@ class States:
                     ))
                 else:
                     print("By now only the formats with 4 and 6 quantum numbers are supported")
+
+
+class HITRANStates:
+    def __init__(self, list_states):
+        self.__states = list_states
+        self.__states = self.__sort()   # always sorted
+
+    def __len__(self):
+        return len(self.__states)
+
+    def __iter__(self):
+        return iter(self.__states)
+
+    def __getitem__(self, item):
+        return self.__states[item]
+
+    def remove_item(self, item):
+        self.__states.remove(item)
+
+    def __sort(self):
+        return sorted(self.__states, key=lambda x: (x.J, x.sym, x.E[0]))
+
+    def write_to_file(self, out_file_name, E_th=50000.0):
+        with open(out_file_name, 'w') as f:
+            for state in self.__states:
+                for E in state.E:
+                    if E < E_th:
+                        f.write(
+                            "{0:2d} {1:3s} {2:16.6f} {3:4d} {4:3d} {5:3d} {6:3d} {7:3d} {8:3d} \n".format(
+                                state.J, SymType(state.sym).name, E,
+                                state.qn.v1, state.qn.v2, state.qn.v3, state.qn.J, state.qn.Ka, state.qn.Kc
+                            ))
 
 
 class Status(Enum):
