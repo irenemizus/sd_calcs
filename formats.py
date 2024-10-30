@@ -164,21 +164,6 @@ class HITRANFormatH216O (ExpFormatH216O):
 
         return unique_states
 
-    # def __remove_duplicates(self, states_list):
-    #     unique_states_list = [states_list[0]]
-    #     for state in states_list[1:]:
-    #         if ((state.J == unique_states_list[-1].J and state.qn.Ka == unique_states_list[-1].qn.Ka and
-    #              state.qn.Kc == unique_states_list[-1].qn.Kc and state.qn.v1 == unique_states_list[-1].qn.v1 and
-    #              state.qn.v2 == unique_states_list[-1].qn.v2 and state.qn.v3 == unique_states_list[-1].qn.v3) or
-    #              state.sym == states.SymType.UKN.value):
-    #             continue
-    #         else:
-    #             unique_states_list.append(state)
-    #
-    #     unique_states = states.HITRANStates(unique_states_list)
-    #
-    #     return unique_states
-
     def __remove_duplicates(self, states_list):
         unique_states_list = [states_list[0]]
         for state in states_list[1:]:
@@ -201,6 +186,7 @@ class HITRANFormatH216O (ExpFormatH216O):
         unique_states = states.HITRANStates(unique_states_list)
 
         return unique_states
+
 
 class ExpFormatN2O (ExpFormat):
     def __init__(self, file_name, J_list, J_place):

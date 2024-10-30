@@ -6,8 +6,6 @@ import formats
 import states
 
 
-
-
 class ComparedState:
     def __init__(self, E_calc, E_exp, E_hitran, sym, J, N, w, E_diff, E_diff_h, diff_rel, mark='', status=None, qn=None):
         self.E_calc = E_calc
@@ -115,16 +113,12 @@ if __name__ == "__main__":
                         help="basic part of the output, containing the entire comparison results, file name; will be extended with the current parameter values",
                         default="comp.txt")
 
-    parser.add_argument("--eps", type=float,
-                        help="HITRAN energies with |obs-calc| <= eps will be considered as the 'FOUND' ones; the others will be marked as 'OUTLIER's", default=0.2)
-
     args = parser.parse_args()
 
     mol_name = args.mol_name
     file_comp_name = args.file_comp_name
     file_hitran_name = args.file_hitran_name
     out_file_comp_name = args.out_file_comp_name
-    eps = args.eps
 
     # Checking input directory
     full_inp_folder = os.path.join(os.getcwd(), input_folder, mol_name + "_HITRAN_comp")
@@ -137,12 +131,6 @@ if __name__ == "__main__":
     is_out_dir_exists = os.path.isdir(full_out_folder)
     if not is_out_dir_exists:
         os.makedirs(full_out_folder)
-
-    # out_file_comp_name_split = out_file_comp_name.rsplit('.', 1)
-    # if len(out_file_comp_name_split) == 2:  # if out_file_comp_name contains extension
-    #     out_file_comp_name_full = out_file_comp_name_split[0] + "_eps=" + str(eps) + out_file_comp_name_split[1]
-    # else:
-    #     out_file_comp_name_full = out_file_comp_name_split[0] + "_eps=" + str(eps)
 
     out_file_name = os.path.join(full_out_folder, out_file_comp_name)
 
