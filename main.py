@@ -8,7 +8,7 @@ import formats
 import states
 
 
-def exp_number_det(states_calc: states.States, state_exp, eps):
+def exp_number_det(states_calc: states.States, state_exp, eps, obs_calc_comp):
     # A function for determining a serial number of a calculated energy, which corresponds to the given experimental state
     sign = lambda x: math.copysign(1, x)
     status = states.Status.NOT_FOUND
@@ -17,18 +17,23 @@ def exp_number_det(states_calc: states.States, state_exp, eps):
     diff_oc_first = math.nan
     sc_next = None
 
+    if obs_calc_comp:   # an ordinary case of experiment vs calculated data comparison
+        E_exp = state_exp.E
+    else:               # a case of comparison between two calculated datasets in terms of their obs-calc deviations
+        E_exp = state_exp.E_exp
+
     for sc in states_calc:
         indx_next += 1
         if state_exp.J == sc.J and state_exp.sym == sc.sym:
             sc_next = sc
-            diff_oc_first = state_exp.E - sc_next.E
+            diff_oc_first = E_exp - sc_next.E
             list_diff.append((sc_next, diff_oc_first))  # the first candidate
             break
 
     for i in range(indx_next, len(states_calc)):
         sc_next = states_calc[i]
         if state_exp.J == sc_next.J and state_exp.sym == sc_next.sym:
-            diff_oc_next = state_exp.E - sc_next.E
+            diff_oc_next = E_exp - sc_next.E
             list_diff.append((sc_next, diff_oc_next))  # other candidates
 
             # the one, near which the sign of discrepancy changes, or the one, after which the absolute value of deviation increases, fits best
@@ -41,26 +46,26 @@ def exp_number_det(states_calc: states.States, state_exp, eps):
 
     if sc_next.N == len(states_calc):
         # nothing was found
-        return None, states.ComparedState(0.0, state_exp.E, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn)
+        return None, states.ComparedState(0.0, E_exp, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn)
 
     if list_diff:
         # the state we're searching for is the one, which discrepancy is the least
         (sc_fit, diff_oc_fit) = list_diff[-1] if abs(list_diff[-1][1]) <= abs(list_diff[-2][1]) else list_diff[-2]
         if abs(diff_oc_fit) <= eps:
             # FOUND
-            return sc_fit, states.ComparedState(sc_fit.E, state_exp.E, state_exp.J, state_exp.sym, sc_fit.N, 1.0, diff_oc_fit, states.Status.FOUND, state_exp.qn)
+            return sc_fit, states.ComparedState(sc_fit.E, E_exp, state_exp.J, state_exp.sym, sc_fit.N, 1.0, diff_oc_fit, states.Status.FOUND, state_exp.qn)
         elif abs(diff_oc_fit) > eps:
             # OUTLIER
-            return sc_fit, states.ComparedState(sc_fit.E, state_exp.E, state_exp.J, state_exp.sym, sc_fit.N, 0.0, diff_oc_fit, states.Status.OUTLIER, state_exp.qn)
+            return sc_fit, states.ComparedState(sc_fit.E, E_exp, state_exp.J, state_exp.sym, sc_fit.N, 0.0, diff_oc_fit, states.Status.OUTLIER, state_exp.qn)
 
 
-def do_comparison(states_calc, states_exp, eps):
+def do_comparison(states_calc, states_exp, eps, obs_calc_comp=True):
     states_calc_cpy = copy.deepcopy(states_calc)
     comp_states = []
     # iterating by experimental states
     for se in states_exp:
         # searching for the best fit among the calculated energies
-        sc_fit, compared_state = exp_number_det(states_calc_cpy, se, eps)
+        sc_fit, compared_state = exp_number_det(states_calc_cpy, se, eps, obs_calc_comp)
         if sc_fit:
             states_calc_cpy.remove_item(sc_fit)  # removing the found calculated energy
             se.N = compared_state.N              # saving the serial number of the found energy...

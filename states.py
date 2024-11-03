@@ -25,6 +25,12 @@ class QuantNumbers:
         return self.__qn_list[item]
 
 
+class QuantNumbersJOnly (QuantNumbers):
+    def __init__(self, J):
+        QuantNumbers.__init__(self, [ J ])
+        self.J = J
+
+
 class QuantNumbersH216O (QuantNumbers):
     def __init__(self, v1, v2, v3, J, Ka, Kc):
         QuantNumbers.__init__(self, [v1, v2, v3, J, Ka, Kc])
@@ -84,7 +90,11 @@ class States:
     def write_to_file(self, out_file_name):
         with open(out_file_name, 'w') as f:
             for state in self.__states:
-                if len(state.qn) == 6:
+                if len(state.qn) == 1:
+                    f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} \n".format(
+                        state.qn.J, SymType(state.sym).name, state.N, state.E
+                    ))
+                elif len(state.qn) == 6:
                     f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} {7:5.2f} {8:3d} {9:2d} {10:2d}\n".format(
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.v3, state.w,
                         state.qn.J, state.qn.Ka, state.qn.Kc
@@ -94,7 +104,7 @@ class States:
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.J, state.w, state.qn.l
                     ))
                 else:
-                    print("By now only the formats with 4 and 6 quantum numbers are supported")
+                    print("By now only the formats with 1 (only J value), 4 and 6 quantum numbers are supported")
 
 
 class HITRANStates:

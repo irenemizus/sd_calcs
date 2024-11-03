@@ -49,7 +49,7 @@ class ExpFormat (Format):
         Format.__init__(self, format_name)
         self.__file_name = file_name
         self.__J_list = J_list
-        self.__J_place = J_place
+        self.__J_place = J_place    # number of column with J value within the input file (starting from 0)
         self.__sep = sep
         self.__lines = self.__read_file(self.__sep)
 
@@ -186,6 +186,49 @@ class HITRANFormatH216O (ExpFormatH216O):
         unique_states = states.HITRANStates(unique_states_list)
 
         return unique_states
+
+
+class POKAZATELFormatH216O (ExpFormat):
+    def __init__(self, file_name, J_list, J_place):
+        ExpFormat.__init__(self, 'pokazatel.h2-16o.fmt', file_name, J_list, J_place)
+
+    def sym_definition(self, qns=None, lbl=''):
+        if qns.J == 0:
+            if lbl == '1':
+                return states.SymType.A1.value
+            elif lbl == '4':
+                return states.SymType.B2.value
+        elif qns.J % 2:
+            if lbl == '1':
+                return states.SymType.A2.value
+            if lbl == '2':
+                return states.SymType.B1.value
+            elif lbl == '3':
+                return states.SymType.A1.value
+            elif lbl == '4':
+                return states.SymType.B2.value
+        elif not qns.J % 2:
+            if lbl == '1':
+                return states.SymType.A1.value
+            if lbl == '2':
+                return states.SymType.B2.value
+            elif lbl == '3':
+                return states.SymType.A2.value
+            elif lbl == '4':
+                return states.SymType.B1.value
+        else:
+            print("Strange symmetry label got!")
+
+    def parse_file(self):
+        filtered_lines = self.filter_Jlist_lines()
+        list_states = []
+        for line in filtered_lines:
+            qns = states.QuantNumbersJOnly(J=int(line[3]))
+            sym = self.sym_definition(qns, lbl=line[4])
+            state = states.State(float(line[1]), qns.J, sym, N=int(line[0]), qn=qns)
+            list_states.append(state)
+
+        return states.States(list_states)
 
 
 class ExpFormatN2O (ExpFormat):
