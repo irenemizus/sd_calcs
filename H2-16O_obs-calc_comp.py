@@ -83,7 +83,12 @@ def do_comparison(states_comp, states_calc_old, comp_by_qns, eps=0.0, obs_calc_c
                     E_diff_old = E_diff_list[argmin]
                     E_old_best = so.E[argmin]
                     diff_rel = E_diff_old if sc.E_diff == 0.0 else E_diff_old / sc.E_diff
-                    mark = "!!!" if abs(diff_rel) > 0.5 else ""
+                    if 0.5 < abs(diff_rel) <= 1.0:
+                        mark = "≈"
+                    elif abs(diff_rel) > 1.0:
+                        mark = "!!!"
+                    else:
+                        mark = ""
                     comp_old_state = ComparedState(sc.E_calc, sc.E_exp, E_old_best, sc.sym, sc.J, sc.N, sc.w,
                                                  sc.E_diff, E_diff_old, diff_rel, mark, sc.status, sc.qn)
                     comp_states.append(comp_old_state)
@@ -97,7 +102,12 @@ def do_comparison(states_comp, states_calc_old, comp_by_qns, eps=0.0, obs_calc_c
                 E_old_best = compared_state.E_calc
                 E_diff_old = compared_state.E_diff
                 diff_rel = E_diff_old if sc.E_diff == 0.0 else E_diff_old / sc.E_diff
-                mark = "!!!" if abs(diff_rel) > 0.5 else ""
+                if 0.5 < abs(diff_rel) <= 1.0:
+                    mark = "≈"
+                elif abs(diff_rel) > 1.0:
+                    mark = "!!!"
+                else:
+                    mark = ""
                 comp_old_state = ComparedState(sc.E_calc, sc.E_exp, E_old_best, sc.sym, sc.J, sc.N, sc.w,
                                                sc.E_diff, E_diff_old, diff_rel, mark, sc.status, sc.qn)
                 comp_states.append(comp_old_state)
@@ -168,28 +178,28 @@ if __name__ == "__main__":
     comp_states = comp_list.parse_file(file_comp_name_full)
 
     # For HITRAN data -------------------
-    h_format = formats.HITRANFormatH216O(file_old_calc_name_full, J_list, 3)
-    hitran_states = h_format.parse_file()
-
-    out_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs.txt')
-    hitran_states.write_to_file(out_HITRAN_levs_file_name)
-
-    comp_h_states, h_states_nf = do_comparison(comp_states, hitran_states, True)
-    comp_h_states.write_to_file(out_file_name)
-
-    out_nf_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs_not_found.txt')
-    h_states_nf.write_to_file(out_nf_HITRAN_levs_file_name, 26267.8)
+    # h_format = formats.HITRANFormatH216O(file_old_calc_name_full, J_list, 3)
+    # hitran_states = h_format.parse_file()
+    #
+    # out_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs.txt')
+    # hitran_states.write_to_file(out_HITRAN_levs_file_name)
+    #
+    # comp_h_states, h_states_nf = do_comparison(comp_states, hitran_states, True)
+    # comp_h_states.write_to_file(out_file_name)
+    #
+    # out_nf_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs_not_found.txt')
+    # h_states_nf.write_to_file(out_nf_HITRAN_levs_file_name, 26267.8)
     # -----------------------------------
 
     # For POKAZATEL data ----------------
-    # pokaz_format = formats.POKAZATELFormatH216O(file_old_calc_name_full, J_list, 3)
-    # pokaz_states = pokaz_format.parse_file()
-    #
-    # comp_pokaz_states, pokaz_states_nf = do_comparison(comp_states, pokaz_states, False, eps)
-    # comp_pokaz_states.write_to_file(out_file_name)
-    #
-    # out_nf_POKAZ_levs_file_name = os.path.join(full_out_folder, 'POKAZ_levs_not_found.txt')
-    # pokaz_states_nf.write_to_file(out_nf_POKAZ_levs_file_name)
+    pokaz_format = formats.POKAZATELFormatH216O(file_old_calc_name_full, J_list, 3)
+    pokaz_states = pokaz_format.parse_file()
+
+    comp_pokaz_states, pokaz_states_nf = do_comparison(comp_states, pokaz_states, False, eps)
+    comp_pokaz_states.write_to_file(out_file_name)
+
+    out_nf_POKAZ_levs_file_name = os.path.join(full_out_folder, 'POKAZ_levs_not_found.txt')
+    pokaz_states_nf.write_to_file(out_nf_POKAZ_levs_file_name)
     # -----------------------------------
 
 
