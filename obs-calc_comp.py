@@ -117,7 +117,7 @@ def do_comparison(states_comp, states_calc_old, comp_by_qns, eps=0.0, obs_calc_c
 
 if __name__ == "__main__":
     """
-        A script for finding related pairs of previous (HITRAN/POKAZATEL) and current calculated and observed states for H2-16O 
+        A script for finding related pairs of previous (HITRAN/ExoMol) and current calculated and observed states for a 
         molecule and obtaining deviations for them.
 
         Should be considered as a small separated add-on to the main sd_calcs script.
@@ -129,11 +129,11 @@ if __name__ == "__main__":
 
     # Command line parameters
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mol_name", type=str, help="name of the molecule", choices=['H2-16O'],
+    parser.add_argument("--mol_name", type=str, help="name of the molecule", choices=['H2-16O', 'N2O'],
                         default='H2-16O')
     parser.add_argument("--file_comp_name", type=str, help="name of the input file with pre-generated "
                                                            "'current calculated vs observed' comparison data")
-    parser.add_argument("--file_old_calc_name", type=str, help="name of the input file with previous (HITRAN/POKAZATEL) calculated data")
+    parser.add_argument("--file_old_calc_name", type=str, help="name of the input file with previous (HITRAN/ExoMol) calculated data")
 
     parser.add_argument("--out_file_comp_name", type=str,
                         help="basic part of the output, containing the entire comparison results, file name; will be extended with the current parameter values",
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     # -----------------------------------
 
     # For POKAZATEL data ----------------
-    pokaz_format = formats.POKAZATELFormatH216O(file_old_calc_name_full, J_list, 3)
+    pokaz_format = formats.ExoMolFormatH216O(file_old_calc_name_full, J_list, 3)
     pokaz_states = pokaz_format.parse_file()
 
     comp_pokaz_states, pokaz_states_nf = do_comparison(comp_states, pokaz_states, False, eps)

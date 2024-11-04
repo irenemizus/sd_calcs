@@ -127,6 +127,28 @@ def sd_calculation(comp_states, E_tr_l, E_tr_h):
     return sd_l, sd_m, sd_h
 
 
+def outliers_by_N_out_rel(comp_states, N_out_rel):
+    comp_states_out = []
+
+    def w_zero(x):
+        x.w, x.status = 0.0, states.Status.OUTLIER
+        return x
+
+    def w_one(x):
+        x.w, x.status = 1.0, states.Status.FOUND
+        return x
+
+    comp_states_sort_by_diff = sorted(comp_states, key=lambda x: abs(x.E_diff))
+    N_out = math.floor(len(comp_states) * N_out_rel / 100.0)
+    N_found = len(comp_states) - N_out
+    found_body = list(map(w_one, comp_states_sort_by_diff[:N_found]))   # All the levels with E_diff <= eps_max become FOUND
+    comp_states_out.extend(found_body)
+    eps_max = comp_states_out[-1].E_diff
+    outliers_tail = list(map(w_zero, comp_states_sort_by_diff[N_found:])) # The N_out_rel % remaining levels become OUTLIERs
+    comp_states_out.extend(outliers_tail)
+    return sorted(comp_states_out, key=lambda x: (x.J, x.sym, x.E_exp)), eps_max
+
+
 def write_sds_to_file(fo, sd_list):
     suffix = ["l", "m", "h"]
     s = 0
@@ -154,7 +176,7 @@ if __name__ == '__main__':
         
         By now, the following is supported:
         - molecules: H2-16O, N2O
-        - files with calculated data: fort.14-like
+        - files with calculated data: fort.14-like, ExoMol states-like
         - files with observed data: MARVEL-like 
         - output formats: Yurchenko's fit input file
         - output labeling formats: A/B symmetries (A1, A2, B1, B2), 6 quantum numbers for H2-16O, 4 quantum numbers for N2O  
@@ -165,12 +187,13 @@ if __name__ == '__main__':
     input_folder = "input"                  # A folder containing input data (fort.14 files with calculated energies and a file with experimental data)
     output_folder = "output"                # A folder containing output data
     out_file_for_sds = "out_file_all_sd"    # A name for an output file containing only sd values for all the J values and energy ranges of interest (without extension)
-    file_calc_name_prefix = "fort.14"       # A starting part of the names for the input files with calculated energies
+    file_calc_name_prefix = "fort.14"       # A starting part of the names for the fort.14-like input files with calculated energies
 
     # Command line parameters
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str,
-                        help="specifies if the script should process all the 'fort.14' files ('all' mode) or only the specified one",
+                        help="specifies if the script should process all the 'fort.14' files ('all' mode) "
+                             "or only the specified one (including a single ExoMol-format states file)",
                         default='all')
     parser.add_argument("--mol_name", type=str, help="name of the molecule", choices=['H2-16O', 'N2O'],
                         default='H2-16O')
@@ -188,10 +211,15 @@ if __name__ == '__main__':
                         help="energy threshold value limiting the upper edge for middle-energy states", default=25000.0)
     parser.add_argument("--eps", type=float,
                         help="calculated energies with |obs-calc| <= eps will be considered as the 'FOUND' ones; the others will be marked as 'OUTLIER's", default=0.2)
+    parser.add_argument("--Jmax", type=int,
+                        help="maximum value of J for comparison", default=100)
 
     parser.add_argument("--make_comp_files", type=str, choices=['True', 'False'],
                         help="defines if the output 'out_file_exp_name' and 'out_file_comp_name' files should be generated ('True' mode), "
                              "or the existed ones should be taken from the 'output_folder/mol_name' directory ('False' mode)", default='True')
+
+    parser.add_argument("--N_out_rel", type=float,
+                        help="a relative number of worst-predicted states, which should be considered as outliers for a final all-J sd calculation, in percentage", default=0.0)
 
     args = parser.parse_args()
 
@@ -205,6 +233,8 @@ if __name__ == '__main__':
     E_tr_l = args.E_tr_l
     E_tr_h = args.E_tr_h
     eps = args.eps
+    Jmax = args.Jmax
+    N_out_rel = args.N_out_rel
     make_comp_files = args.make_comp_files
 
     # Collecting input files
@@ -237,12 +267,20 @@ if __name__ == '__main__':
         forts.sort()
         comp_states_allJ = []
         for fort in forts:
-            # Obtaining calculated states for the given J
-            format_calc = formats.CalcFormat(fort, E_zero, au_to_cm)
-            states_calc = format_calc.parse_file()
+            if not mode.startswith("fort.14") and len(forts) == 1:
+                J_list = [str(J) for J in range(Jmax + 1)]
+                # For ExoMol (e.g., POKAZATEL) data ----------------
+                # Obtaining calculated states
+                exomol_format = formats.ExoMolFormatH216O(fort, J_list, 3)
+                states_calc = exomol_format.parse_file()
+                # ------------------------------------
+            else:
+                # Obtaining calculated states for the given J
+                format_calc = formats.CalcFormat(fort, E_zero, au_to_cm)
+                states_calc = format_calc.parse_file()
 
-            # Getting the current J value
-            J_list = [str(states_calc[0].J)]
+                # Getting the current J value
+                J_list = [str(states_calc[0].J)]
 
             # Getting the full path for the input file with experimental data
             file_exp_name_full = os.path.join(full_inp_folder, file_exp_name)
@@ -262,18 +300,24 @@ if __name__ == '__main__':
 
             states_exp = format_exp.parse_file()
 
-            # Obtaining a list of compared states
-            comp_list = do_comparison(states_calc, states_exp, eps)
-
             # Generating full output file names
-            out_file_comp_name_full = out_file_name_generation(full_out_folder, out_file_comp_name, J_list[0], mol_name)
-            out_file_exp_name_full = out_file_name_generation(full_out_folder, out_file_exp_name, J_list[0], mol_name)
-            out_file_comp_name_full_allJ = out_file_name_generation(full_out_folder, out_file_comp_name, 'all', mol_name)
+            if not mode.startswith("fort.14") and len(forts) == 1:
+                J_suffix = f"all_eps={eps}"
+            else:
+                J_suffix = J_list[0] + f"_eps={eps}"
 
+            out_file_comp_name_full = out_file_name_generation(full_out_folder, out_file_comp_name, J_suffix, mol_name)
+            out_file_exp_name_full = out_file_name_generation(full_out_folder, out_file_exp_name, J_suffix, mol_name)
+            out_file_comp_name_full_allJ = out_file_name_generation(full_out_folder, out_file_comp_name, f'all_eps={eps}', mol_name)
+
+            comp_list = states.ComparisonList([])
             # Generating output files with comparison results (for 'True' mode)
             if make_comp_files == 'True':
+                # Obtaining a list of compared states
+                comp_list = do_comparison(states_calc, states_exp, eps)
                 comp_list.write_to_file(out_file_comp_name_full)
-                comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a')
+                if len(forts) > 1:
+                    comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a')
                 states_exp.write_to_file(out_file_exp_name_full)
 
             """
@@ -295,9 +339,9 @@ if __name__ == '__main__':
             # Generating a name with '+sd' suffix for a new output file, which will contain both the comparison and sd values
             out_file_comp_name_split = out_file_comp_name_full.rsplit('.', 1)
             if len(out_file_comp_name_split) == 2:  # if out_file_comp_name_full contains extension
-                out_file_comp_name_full_sd = out_file_comp_name_split[0] + "+sd." + out_file_comp_name_split[1]
+                out_file_comp_name_full_sd = out_file_comp_name_split[0] + f"+sd." + out_file_comp_name_split[1]
             else:
-                out_file_comp_name_full_sd = out_file_comp_name_split[0] + "+sd"
+                out_file_comp_name_full_sd = out_file_comp_name_split[0] + f"+sd"
 
             # Copying comparison results to the new file
             shutil.copyfile(out_file_comp_name_full, out_file_comp_name_full_sd)
@@ -309,11 +353,13 @@ if __name__ == '__main__':
 
             # Generating a name with '+sd_valid' suffix for another output file, which will contain comparison and sds only for the zero-weighed states
             if make_comp_files == 'False':
+                print("NOTE: changing the '--eps' parameter requires the '--make_comp_files' parameter to be True! "
+                      "Recalculation from the very beginning is required for every new eps value!")
                 if len(out_file_comp_name_split) == 2:  # if out_file_comp_name_full contains extension
-                    out_file_comp_name_full_sd_val = out_file_comp_name_split[0] + "+sd_valid." + \
+                    out_file_comp_name_full_sd_val = out_file_comp_name_split[0] + f"+sd_eps={eps}_valid." + \
                                                      out_file_comp_name_split[1]
                 else:
-                    out_file_comp_name_full_sd_val = out_file_comp_name_split[0] + "+sd_valid"
+                    out_file_comp_name_full_sd_val = out_file_comp_name_split[0] + f"+sd_eps={eps}_valid"
 
                 # Copying comparison results for the zero-weighed states to the new file
                 comp_states_val = comp_list.write_to_file(out_file_comp_name_full_sd_val, filter_by=0.0)
@@ -324,11 +370,44 @@ if __name__ == '__main__':
                     write_sds_to_file(f_val, [sd_val_l, sd_val_m, sd_val_h])
 
             # Collecting sd values for all the J values of interest in one file
-            f_sd.write(f"\n\nJ = {J_list[0]}")
-            write_sds_to_file(f_sd, [sd_l, sd_m, sd_h])
+            if len(forts) > 1:
+                f_sd.write(f"\n\nJ = {J_list[0]}")
+                write_sds_to_file(f_sd, [sd_l, sd_m, sd_h])
 
+        # sd calculation for all J values
         sd_l_allJ, sd_m_allJ, sd_h_allJ = sd_calculation(comp_states_allJ, E_tr_l, E_tr_h)
         f_sd.write(f"\n\nall Js:")
         write_sds_to_file(f_sd, [sd_l_allJ, sd_m_allJ, sd_h_allJ])
+
+        if N_out_rel > 0.0:     # if the worst N_out_rel % levels need to be considered OUTLIERs
+            # eps_max corresponds to N_out_rel % OUTLIERs
+            comp_states_allJ_wo_N_rel_lvls, eps_max = outliers_by_N_out_rel(comp_states_allJ, N_out_rel)
+
+            # writing the new set of levels to a file
+            out_file_comp_name_full_allJ_wo_Nrel_lvls = out_file_name_generation(full_out_folder, out_file_comp_name,
+                                                                                 f'all+sd_eps={eps}_wo_Nrel={N_out_rel}%_lvls', mol_name)
+            comp_list_allJ_wo_N_rel_lvls = states.ComparisonList(comp_states_allJ_wo_N_rel_lvls)
+            comp_list_allJ_wo_N_rel_lvls.write_to_file(out_file_comp_name_full_allJ_wo_Nrel_lvls)
+
+            # calculating new sd for all J values
+            sd_l_allJ_wo_Nrel_lvls, sd_m_allJ_wo_Nrel_lvls, sd_h_allJ_wo_Nrel_lvls = sd_calculation(comp_states_allJ_wo_N_rel_lvls, E_tr_l, E_tr_h)
+            # appending the new sd values to the file
+            with open(out_file_comp_name_full_allJ_wo_Nrel_lvls, 'a') as f_Nout:
+                f_Nout.write(f"\n\nall Js, eps_max = {eps_max:5.3f}:")
+                write_sds_to_file(f_Nout, [sd_l_allJ_wo_Nrel_lvls, sd_m_allJ_wo_Nrel_lvls, sd_h_allJ_wo_Nrel_lvls])
+
+            # writing the new set of outliers to a file
+            out_file_comp_name_full_allJ_wo_Nrel_lvls_val = out_file_name_generation(full_out_folder, out_file_comp_name,
+                                                                                 f'all+sd_eps={eps}_valid_wo_Nrel={N_out_rel}%_lvls', mol_name)
+            comp_out_states_val = comp_list_allJ_wo_N_rel_lvls.write_to_file(out_file_comp_name_full_allJ_wo_Nrel_lvls_val, filter_by=0.0)
+
+            # calculating new sd for all J values
+            sd_l_allJ_wo_Nrel_lvls_val, sd_m_allJ_wo_Nrel_lvls_val, sd_h_allJ_wo_Nrel_lvls_val = sd_calculation(comp_out_states_val, E_tr_l, E_tr_h)
+            # appending the new sd values to the file
+            with open(out_file_comp_name_full_allJ_wo_Nrel_lvls_val, 'a') as f_Nout_val:
+                f_Nout_val.write(f"\n\nall Js, eps_max = {eps_max:5.3f}:")
+                write_sds_to_file(f_Nout_val, [sd_l_allJ_wo_Nrel_lvls_val, sd_m_allJ_wo_Nrel_lvls_val, sd_h_allJ_wo_Nrel_lvls_val])
+
+
 
 

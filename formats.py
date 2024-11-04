@@ -188,9 +188,9 @@ class HITRANFormatH216O (ExpFormatH216O):
         return unique_states
 
 
-class POKAZATELFormatH216O (ExpFormat):
+class ExoMolFormatH216O (ExpFormat):
     def __init__(self, file_name, J_list, J_place):
-        ExpFormat.__init__(self, 'pokazatel.h2-16o.fmt', file_name, J_list, J_place)
+        ExpFormat.__init__(self, 'exomol.h2-16o.fmt', file_name, J_list, J_place)
 
     def sym_definition(self, qns=None, lbl=''):
         if qns.J == 0:
