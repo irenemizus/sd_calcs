@@ -212,7 +212,7 @@ if __name__ == '__main__':
     parser.add_argument("--eps", type=float,
                         help="calculated energies with |obs-calc| <= eps will be considered as the 'FOUND' ones; the others will be marked as 'OUTLIER's", default=0.2)
     parser.add_argument("--Jmax", type=int,
-                        help="maximum value of J for comparison", default=100)
+                        help="maximum value of J for comparison with ExoMol states-like calculated data", default=100)
 
     parser.add_argument("--make_comp_files", type=str, choices=['True', 'False'],
                         help="defines if the output 'out_file_exp_name' and 'out_file_comp_name' files should be generated ('True' mode), "
@@ -243,7 +243,7 @@ if __name__ == '__main__':
     if os.path.isdir(full_inp_folder):
         list_inp_files = os.listdir(full_inp_folder)
     else:
-        print("Input folder doesn't exist")
+        print(f"Input folder '{full_inp_folder}' doesn't exist")
         exit(1)
 
     # Creating/checking output directories
@@ -267,7 +267,7 @@ if __name__ == '__main__':
         forts.sort()
         comp_states_allJ = []
         for fort in forts:
-            if not mode.startswith("fort.14") and len(forts) == 1:
+            if not mode.startswith("fort.14") and len(forts) == 1 and not fort.split("/")[-1].startswith("fort.14"):
                 J_list = [str(J) for J in range(Jmax + 1)]
                 # For ExoMol (e.g., POKAZATEL) data ----------------
                 # Obtaining calculated states
