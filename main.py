@@ -314,7 +314,21 @@ if __name__ == '__main__':
             # Generating output files with comparison results (for 'True' mode)
             if make_comp_files == 'True':
                 # Obtaining a list of compared states
-                comp_list = do_comparison(states_calc, states_exp, eps)
+                comp_list_init = do_comparison(states_calc, states_exp, eps)
+                comp_list = states.ComparisonList([])
+                comp_list.add_item(comp_list_init[0])
+                for i in range(len(comp_list_init) - 1):
+                    if comp_list_init[i + 1].N > comp_list_init[i].N:
+                        comp_list.add_item(comp_list_init[i + 1])
+                    else:
+                        print(f"WARNING: There is a line with J = {comp_list_init[i + 1].J}, symmetry {comp_list_init[i + 1].sym},"
+                              f" experimental energy {comp_list_init[i + 1].E_exp} 1/cm "
+                              f"and the corresponding calculated energy {comp_list_init[i + 1].E_calc} 1/cm in the "
+                              f"comparison list, whose number N = {comp_list_init[i + 1].N} is less than "
+                              f"the one of the previous line N_prev = {comp_list_init[i].N}. "
+                              f"Skipping it. Please check your results. "
+                              f"Maybe, the amount of the calculated data is insufficient.")
+
                 comp_list.write_to_file(out_file_comp_name_full)
                 if len(forts) > 1:
                     comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a')
