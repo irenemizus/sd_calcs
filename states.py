@@ -43,12 +43,16 @@ class QuantNumbersH216O (QuantNumbers):
 
 
 class QuantNumbersN2O (QuantNumbers):
-    def __init__(self, v1, v2, J, l):
-        QuantNumbers.__init__(self, [v1, v2, J, l])
+    def __init__(self, v1, v2, J, l, v3=None):
+        if v3 is None:
+            QuantNumbers.__init__(self, [v1, v2, J, l])
+        else:
+            QuantNumbers.__init__(self, [v1, v2, J, l, v3])
         self.v1 = v1
         self.v2 = v2
         self.J = J
         self.l = l
+        self.v3 = v3
 
 
 class SymType(Enum):
@@ -99,12 +103,17 @@ class States:
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.v3, state.w,
                         state.qn.J, state.qn.Ka, state.qn.Kc
                     ))
+                elif len(state.qn) == 5:
+                    f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} {7:5.2f} {8:3d}\n".format(
+                        state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.v3,
+                        state.w, state.qn.l
+                    ))
                 elif len(state.qn) == 4:
                     f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} {7:5.2f} {8:3d}\n".format(
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.J, state.w, state.qn.l
                     ))
                 else:
-                    print("By now only the formats with 1 (only J value), 4 and 6 quantum numbers are supported")
+                    print("By now only the formats with 1 (only J value), 4, 5 and 6 quantum numbers are supported")
 
 
 class HITRANStates:
@@ -201,6 +210,12 @@ class ComparisonList:
                         state.J, SymType(state.sym).name, state.N, state.E_exp, state.E_calc, state.E_diff,
                         state.qn.v1, state.qn.v2, state.qn.v3, state.w, state.qn.J, state.qn.Ka, state.qn.Kc, Status(state.status).name
                     ))
+                elif len(state.qn) == 5:
+                    f.write(
+                        "{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} {9:5.2f} {10:3d} {11:10s}\n".format(
+                            state.J, SymType(state.sym).name, state.N, state.E_exp, state.E_calc, state.E_diff,
+                            state.qn.v1, state.qn.v2, state.qn.v3, state.w, state.qn.l, Status(state.status).name
+                    ))
                 elif len(state.qn) == 4:
                     f.write(
                         "{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} {9:5.2f} {10:3d} {11:10s}\n".format(
@@ -208,11 +223,11 @@ class ComparisonList:
                             state.qn.v1, state.qn.v2, state.qn.J, state.w, state.qn.l, Status(state.status).name
                     ))
                 else:
-                    print("By now only the formats with 4 and 6 quantum numbers are supported")
+                    print("By now only the formats with 4, 5 and 6 quantum numbers are supported")
 
         return states_to_write
 
-    def parse_file(self, out_file_name):
+    def parse_file(self, out_file_name, format_name):
         comp_states = []
         with open(out_file_name, 'r') as f:
             for line in f:
@@ -221,12 +236,23 @@ class ComparisonList:
                     qn = QuantNumbersH216O(v1=int(list_values[6]), v2=int(list_values[7]), v3=int(list_values[8]),
                                            J=int(list_values[10]), Ka=int(list_values[11]), Kc=int(list_values[12]))
                     status_txt = list_values[13]
+                    w_val = float(list_values[9])
                 elif len(list_values) == 12:
-                    qn = QuantNumbersN2O(v1=int(list_values[6]), v2=int(list_values[7]), J=int(list_values[8]),
-                                         l=int(list_values[10]))
+                    # both N2O (4 qns) and N2O-556 (5 qns) use 12 columns; which one it is is a property of the
+                    # experimental format, not the molecule (RITZ carries v3, the MARVEL-like N2O one does not).
+                    # For N2O-556, v3 occupies the place of the rotational J (which is also the leading column).
+                    if format_name == 'ritz.n2o-556.fmt':
+                        qn = QuantNumbersN2O(v1=int(list_values[6]), v2=int(list_values[7]),
+                                             J=int(list_values[0]), l=int(list_values[10]),
+                                             v3=int(list_values[8]))
+                    else:
+                        qn = QuantNumbersN2O(v1=int(list_values[6]), v2=int(list_values[7]),
+                                             J=int(list_values[8]), l=int(list_values[10]))
                     status_txt = list_values[11]
+                    w_val = float(list_values[9])
                 else:
-                    print("By now only the formats with 4 and 6 quantum numbers are supported")
+                    print("By now only the formats with 4, 5 and 6 quantum numbers are supported")
+                    continue
 
                 if status_txt == 'FOUND':
                     status = Status.FOUND
@@ -247,7 +273,7 @@ class ComparisonList:
                     print("Only symmetry types A1, A2, B1, and B2 are supported")
 
                 comp_states.append(ComparedState(float(list_values[4]), float(list_values[3]), int(list_values[0]),
-                                                 sym.value, int(list_values[2]), float(list_values[9]), float(list_values[5]),
+                                                 sym.value, int(list_values[2]), w_val, float(list_values[5]),
                                                  status, qn))
 
         self.__comp_states = comp_states

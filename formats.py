@@ -6,6 +6,10 @@ class Format:
     def __init__(self, name):
         self.__name = name
 
+    @property
+    def name(self):
+        return self.__name
+
     def parse_file(self):
         pass
 
@@ -251,6 +255,34 @@ class ExpFormatN2O (ExpFormat):
             qns = states.QuantNumbersN2O(v1=int(line[0]), v2=int(line[2]), l=int(line[1]), J=int(line[4]))
             sym = self.sym_definition(lbl=line[3])
             state = states.State(float(line[5]), int(line[4]), sym, qn=qns)
+            list_states.append(state)
+
+        return states.States(list_states)
+
+
+class RITZFormatN2O556 (ExpFormat):
+    def __init__(self, file_name, J_list, J_place):
+        ExpFormat.__init__(self, 'ritz.n2o-556.fmt', file_name, J_list, J_place)
+
+    def sym_definition(self, qns=None, lbl=''):
+        # lbl carries the vibrational symmetry index (isym); the rovibrational symmetry is isym
+        # combined with the parity of J (odd J swaps A1 <-> A2)
+        isym = int(lbl)
+        if not qns.J % 2:
+            return states.SymType.A1.value if isym == 2 else states.SymType.A2.value
+        else:
+            return states.SymType.A2.value if isym == 2 else states.SymType.A1.value
+
+    def parse_file(self):
+        # filter_Jlist_lines also drops the header line, whose first token ('J') is not a J value
+        filtered_lines = self.filter_Jlist_lines()
+        list_states = []
+        for line in filtered_lines:
+            # 0 ~ J  1 ~ isym  2 ~ E  3 ~ v1  4 ~ v2  5 ~ l2  6 ~ v3  7 ~ ief  8 ~ e/f  9 ~ unc  10 ~ #lines
+            J = int(line[0])
+            qns = states.QuantNumbersN2O(v1=int(line[3]), v2=int(line[4]), J=J, l=int(line[5]), v3=int(line[6]))
+            sym = self.sym_definition(qns, lbl=line[1])
+            state = states.State(float(line[2]), J, sym, qn=qns)
             list_states.append(state)
 
         return states.States(list_states)

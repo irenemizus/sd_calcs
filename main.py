@@ -91,24 +91,24 @@ def sd_calculation(comp_states, E_tr_l, E_tr_h):
         if cs.E_exp <= E_tr_l:
             if cs.w > 0:
                 sd_l.Nsd += 1
-                sd_l.sd += cs.E_diff ** 2 * cs.w
+                sd_l.sd += cs.E_diff**2 * cs.w
             else:
                 sd_l.Nout += 1
-                sd_l.sd_out += cs.E_diff ** 2
+                sd_l.sd_out += cs.E_diff**2
         elif cs.E_exp >= E_tr_h:
             if cs.w > 0:
                 sd_h.Nsd += 1
                 sd_h.sd += cs.E_diff**2 * cs.w
             else:
                 sd_h.Nout += 1
-                sd_h.sd_out += cs.E_diff ** 2
+                sd_h.sd_out += cs.E_diff**2
         else:
             if cs.w > 0:
                 sd_m.Nsd += 1
                 sd_m.sd += cs.E_diff**2 * cs.w
             else:
                 sd_m.Nout += 1
-                sd_m.sd_out += cs.E_diff ** 2
+                sd_m.sd_out += cs.E_diff**2
 
     if sd_h.Nsd > 0:
         sd_h.sd = math.sqrt(sd_h.sd / sd_h.Nsd)
@@ -195,7 +195,7 @@ if __name__ == '__main__':
                         help="specifies if the script should process all the 'fort.14' files ('all' mode) "
                              "or only the specified one (including a single ExoMol-format states file)",
                         default='all')
-    parser.add_argument("--mol_name", type=str, help="name of the molecule", choices=['H2-16O', 'N2O'],
+    parser.add_argument("--mol_name", type=str, help="name of the molecule", choices=['H2-16O', 'N2O', 'N2O-556'],
                         default='H2-16O')
     parser.add_argument("--file_exp_name", type=str, help="name of the input file with experimental data")
     parser.add_argument("--out_file_exp_name", type=str,
@@ -294,8 +294,11 @@ if __name__ == '__main__':
                 # for N2O
                 # 0 ~ q1  1 ~ q2  2 ~ q3  3 ~ sym  4 ~ J  5 ~ E
                 format_exp = formats.ExpFormatN2O(file_exp_name_full, J_list, 4)
+            elif mol_name.upper() == "N2O-556":
+                # for N2O-556 (RITZ format); J is the first column
+                format_exp = formats.RITZFormatN2O556(file_exp_name_full, J_list, 0)
             else:
-                print("Only H2-16O and N2O molecules are supported by now")
+                print("Only H2-16O, N2O, and N2O-556 molecules are supported by now")
                 exit(1)
 
             states_exp = format_exp.parse_file()
@@ -318,14 +321,18 @@ if __name__ == '__main__':
                 comp_list = states.ComparisonList([])
                 comp_list.add_item(comp_list_init[0])
                 for i in range(len(comp_list_init) - 1):
-                    if comp_list_init[i + 1].N > comp_list_init[i].N:
-                        comp_list.add_item(comp_list_init[i + 1])
+                    prev_line = comp_list_init[i]
+                    cur_line = comp_list_init[i + 1]
+                    # N is assigned per (J, symmetry) block and resets when the block changes, so the
+                    # monotonic-increasing check only applies within the same block
+                    if (prev_line.J != cur_line.J) or (prev_line.sym != cur_line.sym) or (cur_line.N > prev_line.N):
+                        comp_list.add_item(cur_line)
                     else:
-                        print(f"WARNING: There is a line with J = {comp_list_init[i + 1].J}, symmetry {comp_list_init[i + 1].sym},"
-                              f" experimental energy {comp_list_init[i + 1].E_exp} 1/cm "
-                              f"and the corresponding calculated energy {comp_list_init[i + 1].E_calc} 1/cm in the "
-                              f"comparison list, whose number N = {comp_list_init[i + 1].N} is less than "
-                              f"the one of the previous line N_prev = {comp_list_init[i].N}. "
+                        print(f"WARNING: There is a line with J = {cur_line.J}, symmetry {cur_line.sym},"
+                              f" experimental energy {cur_line.E_exp} 1/cm "
+                              f"and the corresponding calculated energy {cur_line.E_calc} 1/cm in the "
+                              f"comparison list, whose number N = {cur_line.N} is less than "
+                              f"the one of the previous line N_prev = {prev_line.N}. "
                               f"Skipping it. Please check your results. "
                               f"Maybe, the amount of the calculated data is insufficient.")
 
@@ -344,7 +351,7 @@ if __name__ == '__main__':
 
             # Parsing the pre-generated output file with comparison results
             if os.path.exists(out_file_comp_name_full):
-                comp_states = comp_list.parse_file(out_file_comp_name_full)
+                comp_states = comp_list.parse_file(out_file_comp_name_full, format_exp.name)
                 comp_states_allJ.extend(comp_states)
             else:
                 print("Can't find file with the comparison! Change the 'make_comp_files' flag to True")

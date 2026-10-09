@@ -174,32 +174,36 @@ if __name__ == "__main__":
     # Getting the full path for the input file with HITRAN data
     file_old_calc_name_full = os.path.join(full_inp_folder, file_old_calc_name)
 
+    # The comp-file layout is a property of the experimental format, not the molecule. This add-on has no
+    # ExpFormat instance (it reads a pre-generated comp file), so the format is taken from the molecule,
+    # for which the mapping is unambiguous among the molecules supported here.
+    format_name = 'exp.h2-16o.fmt' if mol_name.upper() == 'H2-16O' else 'exp.n2o.fmt'
     comp_list = states.ComparisonList([])
-    comp_states = comp_list.parse_file(file_comp_name_full)
+    comp_states = comp_list.parse_file(file_comp_name_full, format_name)
 
     # For HITRAN data -------------------
-    # h_format = formats.HITRANFormatH216O(file_old_calc_name_full, J_list, 3)
-    # hitran_states = h_format.parse_file()
-    #
-    # out_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs.txt')
-    # hitran_states.write_to_file(out_HITRAN_levs_file_name)
-    #
-    # comp_h_states, h_states_nf = do_comparison(comp_states, hitran_states, True)
-    # comp_h_states.write_to_file(out_file_name)
-    #
-    # out_nf_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs_not_found.txt')
-    # h_states_nf.write_to_file(out_nf_HITRAN_levs_file_name, 26267.8)
+    h_format = formats.HITRANFormatH216O(file_old_calc_name_full, J_list, 3)
+    hitran_states = h_format.parse_file()
+
+    out_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs.txt')
+    hitran_states.write_to_file(out_HITRAN_levs_file_name)
+
+    comp_h_states, h_states_nf = do_comparison(comp_states, hitran_states, True)
+    comp_h_states.write_to_file(out_file_name)
+
+    out_nf_HITRAN_levs_file_name = os.path.join(full_out_folder, 'HITRAN_levs_not_found.txt')
+    h_states_nf.write_to_file(out_nf_HITRAN_levs_file_name, 26267.8)
     # -----------------------------------
 
     # For POKAZATEL data ----------------
-    pokaz_format = formats.ExoMolFormatH216O(file_old_calc_name_full, J_list, 3)
-    pokaz_states = pokaz_format.parse_file()
-
-    comp_pokaz_states, pokaz_states_nf = do_comparison(comp_states, pokaz_states, False, eps)
-    comp_pokaz_states.write_to_file(out_file_name)
-
-    out_nf_POKAZ_levs_file_name = os.path.join(full_out_folder, 'POKAZ_levs_not_found.txt')
-    pokaz_states_nf.write_to_file(out_nf_POKAZ_levs_file_name)
+    # pokaz_format = formats.ExoMolFormatH216O(file_old_calc_name_full, J_list, 3)
+    # pokaz_states = pokaz_format.parse_file()
+    #
+    # comp_pokaz_states, pokaz_states_nf = do_comparison(comp_states, pokaz_states, False, eps)
+    # comp_pokaz_states.write_to_file(out_file_name)
+    #
+    # out_nf_POKAZ_levs_file_name = os.path.join(full_out_folder, 'POKAZ_levs_not_found.txt')
+    # pokaz_states_nf.write_to_file(out_nf_POKAZ_levs_file_name)
     # -----------------------------------
 
 
