@@ -20,17 +20,19 @@ produce fit-input files.
 
 - `H2-16O` (water)
 - `N2O` (nitrous oxide)
+- `N2O-556` (an `N2O` isotopologue; RITZ experimental data only)
 
 ## Supported data
 
-- **Molecules:** `H2-16O`, `N2O`
+- **Molecules:** `H2-16O`, `N2O`, `N2O-556`
 - **Files with calculated data:** `fort.14`-like, ExoMol states-like, HITRAN
-- **Files with observed data:** MARVEL-like
+- **Files with observed data:** MARVEL-like, RITZ-like (for `N2O-556`)
 - **Output formats:** Yurchenko's fit-input file, comparison files, sd summary files
 - **Output labelling:**
   - symmetries `A1, A2, B1, B2` (plus `UKN` for undetermined)
   - 6 quantum numbers for `H2-16O` (`v1, v2, v3, J, Ka, Kc`)
   - 4 quantum numbers for `N2O` (`v1, v2, J, l`)
+  - 5 quantum numbers for `N2O-556` (`v1, v2, v3, J, l`)
 
 ## Requirements
 
@@ -44,11 +46,12 @@ produce fit-input files.
 ├── main.py               # main entry point: obs-vs-calc matching + sd
 ├── obs-calc_comp.py      # add-on: compare previous (HITRAN/ExoMol) calc data vs the current comparison
 ├── states.py             # data model (State, States, quantum numbers, symmetries, statuses, comparison lists)
-├── formats.py            # input-file parsers (fort.14, ExoMol, MARVEL exp, HITRAN)
+├── formats.py            # input-file parsers (fort.14, ExoMol, HITRAN, MARVEL exp, RITZ exp)
 ├── README.md             # this file
 ├── input/                # input data, one sub-directory per molecule (git-ignored)
 │   ├── H2-16O/           #   fort.14-* files + observed-data file
-│   └── N2O/
+│   ├── N2O/
+│   └── N2O-556/          #   fort.14-* files + RITZ observed-data file
 └── output/               # generated results, one sub-directory per molecule (git-ignored)
 ```
 
@@ -92,7 +95,7 @@ python main.py [options]
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--mode` | `all` (process every `fort.14*` file in the input folder) or the name of a single file (also handles a single ExoMol states file) | `all` |
-| `--mol_name` | molecule name: `H2-16O` or `N2O` | `H2-16O` |
+| `--mol_name` | molecule name: `H2-16O`, `N2O`, or `N2O-556` | `H2-16O` |
 | `--file_exp_name` | name of the observed-data file inside `input/<mol_name>/` | — |
 | `--out_file_exp_name` | base name for the Yurchenko fit-input output file (extended automatically) | `ens_Yur_format.txt` |
 | `--out_file_comp_name` | base name for the full comparison output file (extended automatically) | `comp.txt` |
@@ -132,8 +135,16 @@ python main.py \
     --mode all \
     --mol_name N2O \
     --file_exp_name <n2o_obs_file> \
-    --eps 0.3 \
     --N_out_rel 10.0
+```
+
+```bash
+# N2O-556 isotopologue against RITZ observed levels (J is the first column in the input file).
+python main.py \
+    --mode all \
+    --mol_name N2O-556 \
+    --file_exp_name RITZ.556.levels.v2 \
+    --eps 0.2
 ```
 
 ### Outputs of `main.py`
