@@ -470,7 +470,15 @@ if __name__ == '__main__':
                 comp_list.write_to_file(out_file_comp_name_full, w_spec=w_spec)
                 if len(forts) > 1:
                     comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a', w_spec=w_spec)
-                states_exp.write_to_file(out_file_exp_name_full, w_spec=w_spec)
+                # The Yurchenko fit-input (ens) file must contain exactly the same set of levels as the
+                # comparison file written just above: only the matched states that passed the monotonic-
+                # increasing N check. states_exp still holds every experimental state (including the
+                # NOT_FOUND ones with N = 0 and the non-monotonic ones), so it is truncated down to the
+                # levels actually present in comp_list. Each level's quantum-number object is unique and
+                # is shared between its State and ComparedState, so membership is tested by that object.
+                kept_qn = {cs.qn for cs in comp_list}
+                states.States([se for se in states_exp if se.qn in kept_qn]).write_to_file(
+                    out_file_exp_name_full, w_spec=w_spec)
 
             """
                 Here there is a possibility to change somehow the content of the pre-generated file with comparison results.
