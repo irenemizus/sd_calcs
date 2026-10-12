@@ -16,6 +16,11 @@ From these labelled pairs the program computes the standard deviation of the
 deviations, separately for low-, mid- and high-energy ranges, and can also
 produce fit-input files.
 
+Optionally (with `--rel_weights`) the program assigns each level a reliability
+weight derived from the experimental uncertainty of that level and reports the
+sd separately for the high-precision and low-precision groups (see the
+`--rel_weights` section under [Usage](#usage)).
+
 ## Supported molecules
 
 - `H2-16O` (water)
@@ -72,6 +77,12 @@ experimental state the program:
 The winning calculated level is then removed so it cannot be re-matched, and the
 experimental state is tagged `FOUND` or `OUTLIER` using the `eps` threshold.
 
+If no calculated level is available for an experimental state's `(J, symmetry)`
+group — which happens when the calculated set is smaller than the experimental
+one for that `J` (a truncated/incomplete calculated dataset) — the state is
+tagged `NOT_FOUND`, skipped with a warning, and the run continues to the next
+state / next `J`.
+
 ### Standard-deviation ranges
 
 The sd of the deviations is computed over three energy bands, split by the
@@ -82,7 +93,48 @@ experimental energy `E_exp`:
 - **high** — `E_exp >= E_tr_h`
 
 For each band both the sd over `FOUND` states and the sd over `OUTLIER` states
-are reported.
+are reported. With `--rel_weights`, the `FOUND` states of each band are further
+split into high-precision (HP) and low-precision (LP) groups, so six values
+are reported instead of three: `hp_l`, `lp_l`, `hp_m`, `lp_m`, `hp_h`, `lp_h`
+(an empty group is omitted).
+
+## Reliability weighting (`--rel_weights`)
+
+When the observed-data file carries per-level experimental uncertainties, the
+`--rel_weights` option assigns each level a *reliability weight* and reports
+the sd separately for the high-precision and low-precision groups.
+
+For every level the program computes a per-transition experimental error
+
+```
+dE = unc * sqrt(#lines)
+```
+
+where `unc` is the level uncertainty (cm⁻¹) and `#lines` is the number of
+transitions constraining the level. A level is **high-precision (HP)** when
+`dE <= --dE_th` (default `0.001` cm⁻¹) and **low-precision (LP)** otherwise.
+The reliability weight is:
+
+- HP levels → `1.0`
+- LP levels → `dE_max / dE`, where `dE_max` is the largest `dE` among the HP
+  levels (or `--dE_th` when there are no HP levels)
+- `OUTLIER` levels → `0.0` (as in the standard mode)
+
+This weight is written to the comparison and fit-input files (with four
+decimal places in this mode, to keep the fractional grades). Within each
+precision group the per-band sd is computed unweighted over the `FOUND` levels
+(each counted equally), with the `OUTLIER` levels reported separately via
+`sd_out` — the fractional weight itself does not scale the sd.
+
+Requirements and behaviour:
+
+- The observed-data file must carry the `unc` and `#lines` columns (the
+  MARVEL-like `N2O` file and the RITZ `N2O-556` file do). If it does not, a
+  warning is printed and the program falls back to the standard unweighted sd.
+- `--rel_weights` requires `--make_comp_files True`.
+- It can be combined with `--N_out_rel`: the two are independent, since the
+  reliability weight grades the *experimental* levels while `--N_out_rel`
+  re-marks the worst *predicted* levels as outliers.
 
 ## Usage
 
@@ -106,6 +158,8 @@ python main.py [options]
 | `--Jmax` | maximum `J` when using ExoMol states-like calculated data | `100` |
 | `--make_comp_files` | `True` (generate comparison/fit-input files) or `False` (reuse existing ones from the output folder) | `True` |
 | `--N_out_rel` | percentage of the worst-predicted levels to treat as outliers for an extra all-`J` sd calculation | `0.0` |
+| `--rel_weights` | flag: assign per-level reliability weights from the experimental uncertainties and report the sd separately for the high- and low-precision groups (requires `--make_comp_files True` and an observed file with `unc`/`#lines` columns) | off |
+| `--dE_th` | per-transition experimental-error threshold (cm⁻¹) separating high-precision (`dE <= dE_th`) from low-precision levels; only used with `--rel_weights` | `0.001` |
 
 #### Example
 
@@ -147,6 +201,20 @@ python main.py \
     --eps 0.2
 ```
 
+```bash
+# N2O with uncertainty-based reliability weights: each level is graded by its
+# experimental uncertainty and the sd is reported for the high- and
+# low-precision groups.
+python main.py \
+    --mode all \
+    --mol_name N2O \
+    --file_exp_name "N2O 446 Updated Energy Levels.txt" \
+    --E_zero 2370.6426 \
+    --eps 0.0042 \
+    --rel_weights \
+    --dE_th 0.001
+```
+
 ### Outputs of `main.py`
 
 Written to `output/<mol_name>/`:
@@ -162,6 +230,12 @@ Written to `output/<mol_name>/`:
   outliers and the corresponding sd values.
 - When `--make_comp_files False`: a `..._valid` file holding only the
   zero-weighted states and their sd.
+
+> With `--rel_weights`, the weight column of the comparison and fit-input files
+> carries the fractional reliability grade (1.0 for HP, `dE_max/dE` for LP,
+> 0.0 for OUTLIER) at four-decimal precision, and every sd block reports the
+> six HP/LP values (`hp_l`, `lp_l`, `hp_m`, `lp_m`, `hp_h`, `lp_h`) instead of
+> the usual three.
 
 > Changing `--eps` requires re-running with `--make_comp_files True`; every new
 > `eps` value needs a recalculation from the beginning.
