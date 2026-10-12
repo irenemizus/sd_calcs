@@ -41,22 +41,36 @@ def exp_number_det(states_calc: states.States, state_exp, eps, obs_calc_comp):
                 break
 
     if sc_next is None:
-        print("Something wrong is happening! Please check the file with experimental data!")
-        exit(1)
+        # No calculated state (left) for this (J, sym): this experimental level has no calculated
+        # counterpart, which happens when the calculated set is smaller than the experimental one for
+        # the given J (a truncated/incomplete calculated dataset). Mark it NOT_FOUND and continue
+        # instead of aborting the whole run.
+        print(f"WARNING: no calculated state for J = {state_exp.J}, symmetry "
+              f"{states.SymType(state_exp.sym).name}, E_exp = {E_exp:.6f} 1/cm (the calculated set is "
+              f"smaller than the experimental one for this J); marked as NOT_FOUND and skipped.")
+        return None, states.ComparedState(0.0, E_exp, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn,
+                                          is_hp=state_exp.is_hp, prec_weight=state_exp.prec_weight)
 
     if sc_next.N == len(states_calc):
         # nothing was found
-        return None, states.ComparedState(0.0, E_exp, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn)
+        return None, states.ComparedState(0.0, E_exp, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn,
+                                          is_hp=state_exp.is_hp, prec_weight=state_exp.prec_weight)
 
     if list_diff:
         # the state we're searching for is the one, which discrepancy is the least
-        (sc_fit, diff_oc_fit) = list_diff[-1] if abs(list_diff[-1][1]) <= abs(list_diff[-2][1]) else list_diff[-2]
+        if len(list_diff) == 1:
+            # only one candidate remains for this (J, sym); it is the best fit by default
+            sc_fit, diff_oc_fit = list_diff[0]
+        else:
+            (sc_fit, diff_oc_fit) = list_diff[-1] if abs(list_diff[-1][1]) <= abs(list_diff[-2][1]) else list_diff[-2]
         if abs(diff_oc_fit) <= eps:
-            # FOUND
-            return sc_fit, states.ComparedState(sc_fit.E, E_exp, state_exp.J, state_exp.sym, sc_fit.N, 1.0, diff_oc_fit, states.Status.FOUND, state_exp.qn)
+            # FOUND; in '--rel_weights' mode the weight carries the level reliability grade
+            return sc_fit, states.ComparedState(sc_fit.E, E_exp, state_exp.J, state_exp.sym, sc_fit.N, state_exp.prec_weight, diff_oc_fit, states.Status.FOUND, state_exp.qn,
+                                                is_hp=state_exp.is_hp, prec_weight=state_exp.prec_weight)
         elif abs(diff_oc_fit) > eps:
             # OUTLIER
-            return sc_fit, states.ComparedState(sc_fit.E, E_exp, state_exp.J, state_exp.sym, sc_fit.N, 0.0, diff_oc_fit, states.Status.OUTLIER, state_exp.qn)
+            return sc_fit, states.ComparedState(sc_fit.E, E_exp, state_exp.J, state_exp.sym, sc_fit.N, 0.0, diff_oc_fit, states.Status.OUTLIER, state_exp.qn,
+                                                is_hp=state_exp.is_hp, prec_weight=state_exp.prec_weight)
 
 
 def do_comparison(states_calc, states_exp, eps, obs_calc_comp=True):
@@ -127,6 +141,102 @@ def sd_calculation(comp_states, E_tr_l, E_tr_h):
     return sd_l, sd_m, sd_h
 
 
+def assign_precision_weights(states_exp, dE_th):
+    # Translates each level uncertainty to a per-transition experimental error dE = unc * sqrt(#lines),
+    # splits the levels into high-precision (dE <= dE_th) and low-precision (dE > dE_th) groups, and assigns
+    # a reliability weight: 1.0 for HP levels, dE_max/dE for LP levels (dE_max = largest dE among HP levels).
+    for st in states_exp:
+        st.dE = st.unc * math.sqrt(st.nlines) if st.nlines > 0 else 0.0
+
+    hp_levs = [st for st in states_exp if st.dE <= dE_th]
+    dE_max = max((st.dE for st in hp_levs), default=0.0)
+    if dE_max <= 0.0:
+        dE_max = dE_th
+
+    for st in states_exp:
+        if st.dE <= dE_th:
+            st.is_hp = True
+            st.prec_weight = 1.0
+        else:
+            st.is_hp = False
+            st.prec_weight = dE_max / st.dE
+
+    n_hp = len(hp_levs)
+    n_lp = len(states_exp) - n_hp
+    print(f"--rel_weights: dE_th = {dE_th} 1/cm, dE_max = {dE_max:.6g} 1/cm, "
+          f"high-precision = {n_hp}, low-precision = {n_lp}")
+    return dE_max
+
+
+def sd_calculation_rel(comp_states, E_tr_l, E_tr_h):
+    # Two-group sd: for each energy region (l/m/h) and each precision group (hp/lp), a StandDev is computed.
+    # FOUND states are treated as weight 1.00 (unweighted); OUTLIER states go to sd_out as in sd_calculation.
+    # Returns [hp_l, lp_l, hp_m, lp_m, hp_h, lp_h].
+    sd = {(g, r): StandDev() for g in ('hp', 'lp') for r in ('l', 'm', 'h')}
+
+    for cs in comp_states:
+        if cs.E_exp <= E_tr_l:
+            region = 'l'
+        elif cs.E_exp >= E_tr_h:
+            region = 'h'
+        else:
+            region = 'm'
+        group = 'hp' if cs.is_hp else 'lp'
+        obj = sd[(group, region)]
+        if cs.w > 0:
+            obj.Nsd += 1
+            obj.sd += cs.E_diff**2          # all non-zero weights are taken as 1.00
+        else:
+            obj.Nout += 1
+            obj.sd_out += cs.E_diff**2
+
+    out = []
+    for region in ('l', 'm', 'h'):
+        for group in ('hp', 'lp'):
+            obj = sd[(group, region)]
+            if obj.Nsd > 0:
+                obj.sd = math.sqrt(obj.sd / obj.Nsd)
+            if obj.Nout > 0:
+                obj.sd_out = math.sqrt(obj.sd_out / obj.Nout)
+            out.append(obj)
+
+    return out
+
+
+def calc_sd(comp_states, E_tr_l, E_tr_h, use_rel):
+    if use_rel:
+        return sd_calculation_rel(comp_states, E_tr_l, E_tr_h)
+    return list(sd_calculation(comp_states, E_tr_l, E_tr_h))
+
+
+def _write_one_sd(fo, label, sd):
+    if sd.Nsd + sd.Nout > 0:
+        Nout_rel = sd.Nout / (sd.Nsd + sd.Nout) * 100
+        fo.write(f"\nsd_{label} = {sd.sd:.4f}, N_{label} = {sd.Nsd}, sd_{label}_out = {sd.sd_out:.4f}, "
+                 f"N_out_{label} = {sd.Nout}, N_out_rel_{label} = {Nout_rel:.2f}%")
+
+
+def write_sds_to_file(fo, sd_list):
+    suffix = ["l", "m", "h"]
+    s = 0
+    for sd in sd_list:
+        _write_one_sd(fo, suffix[s], sd)
+        s += 1
+
+
+def write_sds_to_file_rel(fo, sd_list):
+    labels = ["hp_l", "lp_l", "hp_m", "lp_m", "hp_h", "lp_h"]
+    for label, sd in zip(labels, sd_list):
+        _write_one_sd(fo, label, sd)
+
+
+def write_sds(fo, sd_list, use_rel):
+    if use_rel:
+        write_sds_to_file_rel(fo, sd_list)
+    else:
+        write_sds_to_file(fo, sd_list)
+
+
 def outliers_by_N_out_rel(comp_states, N_out_rel):
     comp_states_out = []
 
@@ -135,7 +245,8 @@ def outliers_by_N_out_rel(comp_states, N_out_rel):
         return x
 
     def w_one(x):
-        x.w, x.status = 1.0, states.Status.FOUND
+        # keep the reliability grade (1.0 unless '--rel_weights' set a lower value)
+        x.w, x.status = x.prec_weight, states.Status.FOUND
         return x
 
     comp_states_sort_by_diff = sorted(comp_states, key=lambda x: abs(x.E_diff))
@@ -147,16 +258,6 @@ def outliers_by_N_out_rel(comp_states, N_out_rel):
     outliers_tail = list(map(w_zero, comp_states_sort_by_diff[N_found:])) # The N_out_rel % remaining levels become OUTLIERs
     comp_states_out.extend(outliers_tail)
     return sorted(comp_states_out, key=lambda x: (x.J, x.sym, x.E_exp)), eps_max
-
-
-def write_sds_to_file(fo, sd_list):
-    suffix = ["l", "m", "h"]
-    s = 0
-    for sd in sd_list:
-        if sd.Nsd + sd.Nout > 0:
-            Nout_rel = sd.Nout / (sd.Nsd + sd.Nout) * 100
-            fo.write(f"\nsd_{suffix[s]} = {sd.sd:.4f}, N_{suffix[s]} = {sd.Nsd}, sd_{suffix[s]}_out = {sd.sd_out:.4f}, N_out_{suffix[s]} = {sd.Nout}, N_out_rel_{suffix[s]} = {Nout_rel:.2f}%")
-        s += 1
 
 
 def out_file_name_generation(full_out_folder, out_file_name, J, mol_name):
@@ -221,6 +322,16 @@ if __name__ == '__main__':
     parser.add_argument("--N_out_rel", type=float,
                         help="a relative number of worst-predicted states, which should be considered as outliers for a final all-J sd calculation, in percentage", default=0.0)
 
+    parser.add_argument("--rel_weights", action='store_true',
+                        help="assign relative weights to the levels based on the experimental uncertainties "
+                             "(requires the input file with experimental data to carry the 'unc' and '#lines' columns, "
+                             "as in the ExoMol/MARVEL and RITZ formats). High-precision levels get weight 1.0, "
+                             "low-precision levels get weight dE_max/dE. The sd is then reported separately for the "
+                             "high- and low-precision groups. Requires --make_comp_files True.")
+    parser.add_argument("--dE_th", type=float,
+                        help="per-transition experimental error threshold (1/cm) separating high-precision (dE <= dE_th) "
+                             "from low-precision (dE > dE_th) levels; only used with --rel_weights", default=0.001)
+
     args = parser.parse_args()
 
     mode = args.mode
@@ -236,6 +347,15 @@ if __name__ == '__main__':
     Jmax = args.Jmax
     N_out_rel = args.N_out_rel
     make_comp_files = args.make_comp_files
+    rel_weights = args.rel_weights
+    dE_th = args.dE_th
+    # finer weight column resolution is needed to keep the fractional reliability grades
+    w_spec = '7.4f' if rel_weights else '5.2f'
+
+    if rel_weights and make_comp_files != 'True':
+        print("ERROR: '--rel_weights' requires '--make_comp_files True' (the high/low-precision split must be "
+              "known at the sd-calculation step).")
+        exit(1)
 
     # Collecting input files
     list_inp_files = []
@@ -266,6 +386,7 @@ if __name__ == '__main__':
     with open(os.path.join(full_out_folder, out_file_for_sds + "_eps=" + str(eps) + "_El=" + str(E_tr_l) + "_Eh=" + str(E_tr_h)+ ".txt"), 'w') as f_sd:
         forts.sort()
         comp_states_allJ = []
+        rel_warned = False
         for fort in forts:
             if not mode.startswith("fort.14") and len(forts) == 1 and not fort.split("/")[-1].startswith("fort.14"):
                 J_list = [str(J) for J in range(Jmax + 1)]
@@ -303,6 +424,16 @@ if __name__ == '__main__':
 
             states_exp = format_exp.parse_file()
 
+            # '--rel_weights': only active if the experimental data actually carries uncertainties
+            has_unc = any(st.nlines > 0 or st.unc > 0 for st in states_exp)
+            use_rel = rel_weights and has_unc
+            if rel_weights and not has_unc and not rel_warned:
+                print("WARNING: '--rel_weights' passed but the experimental file has no 'unc'/'#lines' columns; "
+                      "falling back to standard weighting.")
+                rel_warned = True
+            if use_rel:
+                assign_precision_weights(states_exp, dE_th)
+
             # Generating full output file names
             if not mode.startswith("fort.14") and len(forts) == 1:
                 J_suffix = f"all_eps={eps}"
@@ -336,10 +467,10 @@ if __name__ == '__main__':
                               f"Skipping it. Please check your results. "
                               f"Maybe, the amount of the calculated data is insufficient.")
 
-                comp_list.write_to_file(out_file_comp_name_full)
+                comp_list.write_to_file(out_file_comp_name_full, w_spec=w_spec)
                 if len(forts) > 1:
-                    comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a')
-                states_exp.write_to_file(out_file_exp_name_full)
+                    comp_list.write_to_file(out_file_comp_name_full_allJ, mode='a', w_spec=w_spec)
+                states_exp.write_to_file(out_file_exp_name_full, w_spec=w_spec)
 
             """
                 Here there is a possibility to change somehow the content of the pre-generated file with comparison results.
@@ -350,7 +481,11 @@ if __name__ == '__main__':
             """
 
             # Parsing the pre-generated output file with comparison results
-            if os.path.exists(out_file_comp_name_full):
+            if use_rel:
+                # use the in-memory comparison list so the high/low-precision (is_hp) grouping is preserved
+                comp_states = list(comp_list)
+                comp_states_allJ.extend(comp_states)
+            elif os.path.exists(out_file_comp_name_full):
                 comp_states = comp_list.parse_file(out_file_comp_name_full, format_exp.name)
                 comp_states_allJ.extend(comp_states)
             else:
@@ -368,9 +503,9 @@ if __name__ == '__main__':
             shutil.copyfile(out_file_comp_name_full, out_file_comp_name_full_sd)
 
             # Calculating sds and writing them at the end of the new file
-            sd_l, sd_m, sd_h = sd_calculation(comp_states, E_tr_l, E_tr_h)
+            sd_list = calc_sd(comp_states, E_tr_l, E_tr_h, use_rel)
             with open(out_file_comp_name_full_sd, 'a') as f:
-                write_sds_to_file(f, [sd_l, sd_m, sd_h])
+                write_sds(f, sd_list, use_rel)
 
             # Generating a name with '+sd_valid' suffix for another output file, which will contain comparison and sds only for the zero-weighed states
             if make_comp_files == 'False':
@@ -386,19 +521,20 @@ if __name__ == '__main__':
                 comp_states_val = comp_list.write_to_file(out_file_comp_name_full_sd_val, filter_by=0.0)
 
                 # Calculating sds for the zero-weighed states and writing them at the end of the new file
-                sd_val_l, sd_val_m, sd_val_h = sd_calculation(comp_states_val, E_tr_l, E_tr_h)
+                # (this path is non-rel only: '--rel_weights' requires '--make_comp_files True')
+                sd_val_list = calc_sd(comp_states_val, E_tr_l, E_tr_h, use_rel=False)
                 with open(out_file_comp_name_full_sd_val, 'a') as f_val:
-                    write_sds_to_file(f_val, [sd_val_l, sd_val_m, sd_val_h])
+                    write_sds(f_val, sd_val_list, use_rel=False)
 
             # Collecting sd values for all the J values of interest in one file
             if len(forts) > 1:
                 f_sd.write(f"\n\nJ = {J_list[0]}")
-                write_sds_to_file(f_sd, [sd_l, sd_m, sd_h])
+                write_sds(f_sd, sd_list, use_rel)
 
         # sd calculation for all J values
-        sd_l_allJ, sd_m_allJ, sd_h_allJ = sd_calculation(comp_states_allJ, E_tr_l, E_tr_h)
+        sd_list_allJ = calc_sd(comp_states_allJ, E_tr_l, E_tr_h, use_rel)
         f_sd.write(f"\n\nall Js:")
-        write_sds_to_file(f_sd, [sd_l_allJ, sd_m_allJ, sd_h_allJ])
+        write_sds(f_sd, sd_list_allJ, use_rel)
 
         if N_out_rel > 0.0:     # if the worst N_out_rel % levels need to be considered OUTLIERs
             # eps_max corresponds to N_out_rel % OUTLIERs
@@ -408,26 +544,26 @@ if __name__ == '__main__':
             out_file_comp_name_full_allJ_wo_Nrel_lvls = out_file_name_generation(full_out_folder, out_file_comp_name,
                                                                                  f'all+sd_eps={eps}_wo_Nrel={N_out_rel}%_lvls', mol_name)
             comp_list_allJ_wo_N_rel_lvls = states.ComparisonList(comp_states_allJ_wo_N_rel_lvls)
-            comp_list_allJ_wo_N_rel_lvls.write_to_file(out_file_comp_name_full_allJ_wo_Nrel_lvls)
+            comp_list_allJ_wo_N_rel_lvls.write_to_file(out_file_comp_name_full_allJ_wo_Nrel_lvls, w_spec=w_spec)
 
             # calculating new sd for all J values
-            sd_l_allJ_wo_Nrel_lvls, sd_m_allJ_wo_Nrel_lvls, sd_h_allJ_wo_Nrel_lvls = sd_calculation(comp_states_allJ_wo_N_rel_lvls, E_tr_l, E_tr_h)
+            sd_list_wo_Nrel_lvls = calc_sd(comp_states_allJ_wo_N_rel_lvls, E_tr_l, E_tr_h, use_rel)
             # appending the new sd values to the file
             with open(out_file_comp_name_full_allJ_wo_Nrel_lvls, 'a') as f_Nout:
                 f_Nout.write(f"\n\nall Js, eps_max = {eps_max:5.3f}:")
-                write_sds_to_file(f_Nout, [sd_l_allJ_wo_Nrel_lvls, sd_m_allJ_wo_Nrel_lvls, sd_h_allJ_wo_Nrel_lvls])
+                write_sds(f_Nout, sd_list_wo_Nrel_lvls, use_rel)
 
             # writing the new set of outliers to a file
             out_file_comp_name_full_allJ_wo_Nrel_lvls_val = out_file_name_generation(full_out_folder, out_file_comp_name,
-                                                                                 f'all+sd_eps={eps}_valid_wo_Nrel={N_out_rel}%_lvls', mol_name)
-            comp_out_states_val = comp_list_allJ_wo_N_rel_lvls.write_to_file(out_file_comp_name_full_allJ_wo_Nrel_lvls_val, filter_by=0.0)
+                                                                                  f'all+sd_eps={eps}_valid_wo_Nrel={N_out_rel}%_lvls', mol_name)
+            comp_out_states_val = comp_list_allJ_wo_N_rel_lvls.write_to_file(out_file_comp_name_full_allJ_wo_Nrel_lvls_val, filter_by=0.0, w_spec=w_spec)
 
             # calculating new sd for all J values
-            sd_l_allJ_wo_Nrel_lvls_val, sd_m_allJ_wo_Nrel_lvls_val, sd_h_allJ_wo_Nrel_lvls_val = sd_calculation(comp_out_states_val, E_tr_l, E_tr_h)
+            sd_list_wo_Nrel_lvls_val = calc_sd(comp_out_states_val, E_tr_l, E_tr_h, use_rel)
             # appending the new sd values to the file
             with open(out_file_comp_name_full_allJ_wo_Nrel_lvls_val, 'a') as f_Nout_val:
                 f_Nout_val.write(f"\n\nall Js, eps_max = {eps_max:5.3f}:")
-                write_sds_to_file(f_Nout_val, [sd_l_allJ_wo_Nrel_lvls_val, sd_m_allJ_wo_Nrel_lvls_val, sd_h_allJ_wo_Nrel_lvls_val])
+                write_sds(f_Nout_val, sd_list_wo_Nrel_lvls_val, use_rel)
 
 
 

@@ -251,10 +251,12 @@ class ExpFormatN2O (ExpFormat):
         filtered_lines = self.filter_Jlist_lines()
         list_states = []
         for line in filtered_lines:
-            # 0 ~ q1  1 ~ q2  2 ~ q3  3 ~ sym  4 ~ J  5 ~ E
+            # 0 ~ q1  1 ~ q2  2 ~ q3  3 ~ sym  4 ~ J  5 ~ E  6 ~ unc  7 ~ #lines
             qns = states.QuantNumbersN2O(v1=int(line[0]), v2=int(line[2]), l=int(line[1]), J=int(line[4]))
             sym = self.sym_definition(lbl=line[3])
-            state = states.State(float(line[5]), int(line[4]), sym, qn=qns)
+            unc = float(line[6]) if len(line) > 6 else 0.0
+            nlines = int(line[7]) if len(line) > 7 else 0
+            state = states.State(float(line[5]), int(line[4]), sym, qn=qns, unc=unc, nlines=nlines)
             list_states.append(state)
 
         return states.States(list_states)
@@ -282,7 +284,9 @@ class RITZFormatN2O556 (ExpFormat):
             J = int(line[0])
             qns = states.QuantNumbersN2O(v1=int(line[3]), v2=int(line[4]), J=J, l=int(line[5]), v3=int(line[6]))
             sym = self.sym_definition(qns, lbl=line[1])
-            state = states.State(float(line[2]), J, sym, qn=qns)
+            unc = float(line[9]) if len(line) > 9 else 0.0
+            nlines = int(line[10]) if len(line) > 10 else 0
+            state = states.State(float(line[2]), J, sym, qn=qns, unc=unc, nlines=nlines)
             list_states.append(state)
 
         return states.States(list_states)

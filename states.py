@@ -2,13 +2,18 @@ from enum import Enum
 
 
 class State:
-    def __init__(self, E, J, sym, N=0, w=1.00, qn=None):
+    def __init__(self, E, J, sym, N=0, w=1.00, qn=None, unc=0.0, nlines=0, dE=0.0, is_hp=True, prec_weight=1.0):
         self.E = E
         self.J = J
         self.sym = sym
         self.N = N
         self.w = w
         self.qn = qn
+        self.unc = unc        # experimental uncertainty of the level (1/cm), if provided
+        self.nlines = nlines  # number of transitions constraining the level, if provided
+        self.dE = dE          # per-transition experimental error: unc * sqrt(nlines)
+        self.is_hp = is_hp    # high-precision (True) vs low-precision (False) level
+        self.prec_weight = prec_weight  # reliability weight: 1.0 for HP, dE_max/dE for LP
 
 
 class QuantNumbers:
@@ -91,7 +96,8 @@ class States:
     def __sort(self):
         return sorted(self.__states, key=lambda x: (x.J, x.sym, x.E))
 
-    def write_to_file(self, out_file_name):
+    def write_to_file(self, out_file_name, w_spec='5.2f'):
+        wfield = "{7:" + w_spec + "}"
         with open(out_file_name, 'w') as f:
             for state in self.__states:
                 if len(state.qn) == 1:
@@ -99,17 +105,17 @@ class States:
                         state.qn.J, SymType(state.sym).name, state.N, state.E
                     ))
                 elif len(state.qn) == 6:
-                    f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} {7:5.2f} {8:3d} {9:2d} {10:2d}\n".format(
+                    f.write(("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} " + wfield + " {8:3d} {9:2d} {10:2d}\n").format(
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.v3, state.w,
                         state.qn.J, state.qn.Ka, state.qn.Kc
                     ))
                 elif len(state.qn) == 5:
-                    f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} {7:5.2f} {8:3d}\n".format(
+                    f.write(("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} " + wfield + " {8:3d}\n").format(
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.v3,
                         state.w, state.qn.l
                     ))
                 elif len(state.qn) == 4:
-                    f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} {7:5.2f} {8:3d}\n".format(
+                    f.write(("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:3d} {5:2d} {6:2d} " + wfield + " {8:3d}\n").format(
                         state.J, SymType(state.sym).name, state.N, state.E, state.qn.v1, state.qn.v2, state.qn.J, state.w, state.qn.l
                     ))
                 else:
@@ -163,7 +169,7 @@ class Status(Enum):
 
 
 class ComparedState:
-    def __init__(self, E_calc, E_exp, J, sym, N, w, E_diff, status=None, qn=None):
+    def __init__(self, E_calc, E_exp, J, sym, N, w, E_diff, status=None, qn=None, is_hp=True, prec_weight=1.0):
         self.E_calc = E_calc
         self.E_exp = E_exp
         self.E_diff = E_diff
@@ -173,6 +179,8 @@ class ComparedState:
         self.w = w
         self.status = status
         self.qn = qn
+        self.is_hp = is_hp            # high-precision (True) vs low-precision (False) level
+        self.prec_weight = prec_weight  # reliability weight of the underlying experimental level
 
 
 class ComparisonList:
@@ -196,7 +204,8 @@ class ComparisonList:
     def __sort(self):
         return sorted(self.__comp_states, key=lambda x: (x.J, x.sym, x.E_exp))
 
-    def write_to_file(self, out_file_name, filter_by=-1.0, mode='w'):
+    def write_to_file(self, out_file_name, filter_by=-1.0, mode='w', w_spec='5.2f'):
+        wfield = "{9:" + w_spec + "}"
         with open(out_file_name, mode) as f:
             if filter_by < 0.0:
                 states_to_write = self.__comp_states
@@ -206,22 +215,24 @@ class ComparisonList:
 
             for state in states_to_write:
                 if len(state.qn) == 6:
-                    f.write("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} {9:5.2f} {10:3d} {11:2d} {12:2d} {13:10s}\n".format(
+                    f.write(("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} " + wfield + " {10:3d} {11:2d} {12:2d} {13:10s}\n").format(
                         state.J, SymType(state.sym).name, state.N, state.E_exp, state.E_calc, state.E_diff,
                         state.qn.v1, state.qn.v2, state.qn.v3, state.w, state.qn.J, state.qn.Ka, state.qn.Kc, Status(state.status).name
                     ))
                 elif len(state.qn) == 5:
                     f.write(
-                        "{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} {9:5.2f} {10:3d} {11:10s}\n".format(
+                        ("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} " + wfield + " {10:3d} {11:10s}\n").format(
                             state.J, SymType(state.sym).name, state.N, state.E_exp, state.E_calc, state.E_diff,
                             state.qn.v1, state.qn.v2, state.qn.v3, state.w, state.qn.l, Status(state.status).name
-                    ))
+                        )
+                    )
                 elif len(state.qn) == 4:
                     f.write(
-                        "{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} {9:5.2f} {10:3d} {11:10s}\n".format(
+                        ("{0:2d} {1:2s} {2:4d} {3:15.6f} {4:15.6f} {5:15.6f} {6:3d} {7:2d} {8:2d} " + wfield + " {10:3d} {11:10s}\n").format(
                             state.J, SymType(state.sym).name, state.N, state.E_exp, state.E_calc, state.E_diff,
                             state.qn.v1, state.qn.v2, state.qn.J, state.w, state.qn.l, Status(state.status).name
-                    ))
+                        )
+                    )
                 else:
                     print("By now only the formats with 4, 5 and 6 quantum numbers are supported")
 
