@@ -161,6 +161,7 @@ python main.py [options]
 | `--rel_weights` | flag: assign per-level reliability weights from the experimental uncertainties and report the sd separately for the high- and low-precision groups (requires `--make_comp_files True` and an observed file with `unc`/`#lines` columns) | off |
 | `--dE_th` | per-transition experimental-error threshold (cm⁻¹) separating high-precision (`dE <= dE_th`) from low-precision levels; only used with `--rel_weights` | `0.001` |
 | `--hp_weight` | weight assigned to high-precision levels; only used with `--rel_weights` | `1.0` |
+| `--E_cut` | cut the `ens_Yur_format.*` fit-input files at this energy (cm⁻¹): levels with `E > E_cut` are omitted; all other output files are unaffected | off |
 
 #### Example
 

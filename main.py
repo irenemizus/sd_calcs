@@ -333,6 +333,9 @@ if __name__ == '__main__':
                              "from low-precision (dE > dE_th) levels; only used with --rel_weights", default=0.001)
     parser.add_argument("--hp_weight", type=float,
                         help="weight assigned to high-precision levels; only used with --rel_weights", default=1.0)
+    parser.add_argument("--E_cut", type=float,
+                        help="cut the ens fit-input files at this energy (1/cm): levels with E > E_cut are omitted",
+                        default=None)
 
     args = parser.parse_args()
 
@@ -352,6 +355,7 @@ if __name__ == '__main__':
     rel_weights = args.rel_weights
     dE_th = args.dE_th
     hp_weight = args.hp_weight
+    E_cut = args.E_cut
     # finer weight column resolution is needed to keep the fractional reliability grades
     w_spec = '7.4f' if rel_weights else '5.2f'
 
@@ -479,8 +483,10 @@ if __name__ == '__main__':
                 # levels actually present in comp_list. Each level's quantum-number object is unique and
                 # is shared between its State and ComparedState, so membership is tested by that object.
                 kept_qn = {cs.qn for cs in comp_list}
-                states.States([se for se in states_exp if se.qn in kept_qn]).write_to_file(
-                    out_file_exp_name_full, w_spec=w_spec)
+                ens_states = [se for se in states_exp if se.qn in kept_qn]
+                if E_cut is not None:
+                    ens_states = [se for se in ens_states if se.E <= E_cut]
+                states.States(ens_states).write_to_file(out_file_exp_name_full, w_spec=w_spec)
 
             """
                 Here there is a possibility to change somehow the content of the pre-generated file with comparison results.
