@@ -115,7 +115,7 @@ transitions constraining the level. A level is **high-precision (HP)** when
 `dE <= --dE_th` (default `0.001` cm⁻¹) and **low-precision (LP)** otherwise.
 The reliability weight is:
 
-- HP levels → `1.0`
+- HP levels → `--hp_weight` (default `1.0`)
 - LP levels → `dE_max / dE`, where `dE_max` is the largest `dE` among the HP
   levels (or `--dE_th` when there are no HP levels)
 - `OUTLIER` levels → `0.0` (as in the standard mode)
@@ -160,6 +160,7 @@ python main.py [options]
 | `--N_out_rel` | percentage of the worst-predicted levels to treat as outliers for an extra all-`J` sd calculation | `0.0` |
 | `--rel_weights` | flag: assign per-level reliability weights from the experimental uncertainties and report the sd separately for the high- and low-precision groups (requires `--make_comp_files True` and an observed file with `unc`/`#lines` columns) | off |
 | `--dE_th` | per-transition experimental-error threshold (cm⁻¹) separating high-precision (`dE <= dE_th`) from low-precision levels; only used with `--rel_weights` | `0.001` |
+| `--hp_weight` | weight assigned to high-precision levels; only used with `--rel_weights` | `1.0` |
 
 #### Example
 

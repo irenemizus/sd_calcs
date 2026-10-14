@@ -141,10 +141,10 @@ def sd_calculation(comp_states, E_tr_l, E_tr_h):
     return sd_l, sd_m, sd_h
 
 
-def assign_precision_weights(states_exp, dE_th):
+def assign_precision_weights(states_exp, dE_th, hp_weight=1.0):
     # Translates each level uncertainty to a per-transition experimental error dE = unc * sqrt(#lines),
     # splits the levels into high-precision (dE <= dE_th) and low-precision (dE > dE_th) groups, and assigns
-    # a reliability weight: 1.0 for HP levels, dE_max/dE for LP levels (dE_max = largest dE among HP levels).
+    # a reliability weight: hp_weight for HP levels, dE_max/dE for LP levels (dE_max = largest dE among HP levels).
     for st in states_exp:
         st.dE = st.unc * math.sqrt(st.nlines) if st.nlines > 0 else 0.0
 
@@ -156,7 +156,7 @@ def assign_precision_weights(states_exp, dE_th):
     for st in states_exp:
         if st.dE <= dE_th:
             st.is_hp = True
-            st.prec_weight = 1.0
+            st.prec_weight = hp_weight
         else:
             st.is_hp = False
             st.prec_weight = dE_max / st.dE
@@ -331,6 +331,8 @@ if __name__ == '__main__':
     parser.add_argument("--dE_th", type=float,
                         help="per-transition experimental error threshold (1/cm) separating high-precision (dE <= dE_th) "
                              "from low-precision (dE > dE_th) levels; only used with --rel_weights", default=0.001)
+    parser.add_argument("--hp_weight", type=float,
+                        help="weight assigned to high-precision levels; only used with --rel_weights", default=1.0)
 
     args = parser.parse_args()
 
@@ -349,6 +351,7 @@ if __name__ == '__main__':
     make_comp_files = args.make_comp_files
     rel_weights = args.rel_weights
     dE_th = args.dE_th
+    hp_weight = args.hp_weight
     # finer weight column resolution is needed to keep the fractional reliability grades
     w_spec = '7.4f' if rel_weights else '5.2f'
 
@@ -433,7 +436,7 @@ if __name__ == '__main__':
                       "falling back to standard weighting.")
                 rel_warned = True
             if use_rel:
-                assign_precision_weights(states_exp, dE_th)
+                assign_precision_weights(states_exp, dE_th, hp_weight)
 
             # Generating full output file names
             if not mode.startswith("fort.14") and len(forts) == 1:
