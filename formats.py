@@ -18,7 +18,7 @@ class CalcFormat (Format):
     def __init__(self, file_name, Ezero=0.0, au_to_cm=219474.624):
         Format.__init__(self, 'fort.14.fmt')
         self.__file_name = file_name
-        self.__Ezero = Ezero
+        self.__Ezero = Ezero if Ezero is not None else 0.0
         self.__au_to_cm = au_to_cm
 
     def parse_file(self):

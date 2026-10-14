@@ -73,7 +73,7 @@ class SymType(Enum):
 
     @staticmethod
     def from_str(s):
-        return SymType(s.upper())
+        return SymType[s.upper()]
 
 
 class States:
@@ -165,7 +165,7 @@ class Status(Enum):
 
     @staticmethod
     def from_str(s):
-        return Status(s.upper())
+        return Status[s.upper()]
 
 
 class ComparedState:

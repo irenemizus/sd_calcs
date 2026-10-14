@@ -51,11 +51,6 @@ def exp_number_det(states_calc: states.States, state_exp, eps, obs_calc_comp):
         return None, states.ComparedState(0.0, E_exp, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn,
                                           is_hp=state_exp.is_hp, prec_weight=state_exp.prec_weight)
 
-    if sc_next.N == len(states_calc):
-        # nothing was found
-        return None, states.ComparedState(0.0, E_exp, state_exp.J, state_exp.sym, 0, 0.0, 0.0, status, state_exp.qn,
-                                          is_hp=state_exp.is_hp, prec_weight=state_exp.prec_weight)
-
     if list_diff:
         # the state we're searching for is the one, which discrepancy is the least
         if len(list_diff) == 1:
