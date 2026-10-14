@@ -387,6 +387,7 @@ if __name__ == '__main__':
         forts.sort()
         comp_states_allJ = []
         rel_warned = False
+        suboptimal_all = []
         for fort in forts:
             if not mode.startswith("fort.14") and len(forts) == 1 and not fort.split("/")[-1].startswith("fort.14"):
                 J_list = [str(J) for J in range(Jmax + 1)]
@@ -459,13 +460,11 @@ if __name__ == '__main__':
                     if (prev_line.J != cur_line.J) or (prev_line.sym != cur_line.sym) or (cur_line.N > prev_line.N):
                         comp_list.add_item(cur_line)
                     else:
-                        print(f"WARNING: There is a line with J = {cur_line.J}, symmetry {cur_line.sym},"
-                              f" experimental energy {cur_line.E_exp} 1/cm "
-                              f"and the corresponding calculated energy {cur_line.E_calc} 1/cm in the "
-                              f"comparison list, whose number N = {cur_line.N} is less than "
-                              f"the one of the previous line N_prev = {prev_line.N}. "
-                              f"Skipping it. Please check your results. "
-                              f"Maybe, the amount of the calculated data is insufficient.")
+                        suboptimal_all.append(cur_line)
+                        print(f"WARNING: suboptimal match: J = {cur_line.J}, symmetry {cur_line.sym},"
+                              f" E_exp = {cur_line.E_exp:.6f} 1/cm, E_calc = {cur_line.E_calc:.6f} 1/cm, "
+                              f"N = {cur_line.N} < N_prev = {prev_line.N}. "
+                              f"Written to suboptimal_matches.txt.")
 
                 comp_list.write_to_file(out_file_comp_name_full, w_spec=w_spec)
                 if len(forts) > 1:
@@ -538,6 +537,12 @@ if __name__ == '__main__':
             if len(forts) > 1:
                 f_sd.write(f"\n\nJ = {J_list[0]}")
                 write_sds(f_sd, sd_list, use_rel)
+
+        # Writing suboptimal (non-monotonic N) matches to a separate file
+        if suboptimal_all:
+            suboptimal_file = os.path.join(full_out_folder, 'suboptimal_matches.txt')
+            states.ComparisonList(suboptimal_all).write_to_file(suboptimal_file, w_spec=w_spec)
+            print(f"\n{len(suboptimal_all)} suboptimal match(es) written to {suboptimal_file}")
 
         # sd calculation for all J values
         sd_list_allJ = calc_sd(comp_states_allJ, E_tr_l, E_tr_h, use_rel)
