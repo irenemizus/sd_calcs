@@ -331,6 +331,10 @@ if __name__ == '__main__':
     parser.add_argument("--E_cut", type=float,
                         help="cut the ens fit-input files at this energy (1/cm): levels with E > E_cut are omitted",
                         default=None)
+    parser.add_argument("--E_fit_max", type=float,
+                        help="maximum energy (1/cm) for the fit: levels with E > E_fit_max in the "
+                             "ens_Yur_format.* files get zero weight; all other output files are unaffected",
+                        default=None)
 
     args = parser.parse_args()
 
@@ -351,6 +355,7 @@ if __name__ == '__main__':
     dE_th = args.dE_th
     hp_weight = args.hp_weight
     E_cut = args.E_cut
+    E_fit_max = args.E_fit_max
     # finer weight column resolution is needed to keep the fractional reliability grades
     w_spec = '7.4f' if rel_weights else '5.2f'
 
@@ -481,6 +486,10 @@ if __name__ == '__main__':
                 ens_states = [se for se in states_exp if se.qn in kept_qn]
                 if E_cut is not None:
                     ens_states = [se for se in ens_states if se.E <= E_cut]
+                if E_fit_max is not None:
+                    for se in ens_states:
+                        if se.E > E_fit_max:
+                            se.w = 0.0
                 states.States(ens_states).write_to_file(out_file_exp_name_full, w_spec=w_spec)
 
             """

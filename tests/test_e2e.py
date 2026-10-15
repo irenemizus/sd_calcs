@@ -182,6 +182,49 @@ class TestE2EH2OExoMolECut(unittest.TestCase):
                 self.assertLessEqual(E, 250.0, msg=f"Level with E={E} exceeds E_cut=250.0")
 
 
+class TestE2EH2OExoMolEFitMax(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        _setup_h2o_exomol(self.tmpdir)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_E_fit_max_zeroes_weights_above_threshold(self):
+        r = _run_main(self.tmpdir,
+                      '--mode', 'test.states',
+                      '--mol_name', 'H2-16O',
+                      '--file_exp_name', 'exp.txt',
+                      '--E_fit_max', '250.0')
+        self.assertEqual(r.returncode, 0, msg=r.stderr)
+        out_dir = os.path.join(self.tmpdir, 'output', 'H2-16O')
+        ens_files = [f for f in os.listdir(out_dir) if f.startswith('ens')]
+        self.assertTrue(len(ens_files) >= 1)
+        ens_content = _read_file(os.path.join(out_dir, ens_files[0]))
+        lines = [l for l in ens_content.strip().split('\n') if l.strip()]
+        self.assertTrue(len(lines) >= 1)
+        for line in lines:
+            parts = line.split()
+            if len(parts) >= 7:
+                E = float(parts[6])
+                w = float(parts[7])
+                if E > 250.0:
+                    self.assertEqual(w, 0.0, msg=f"Level with E={E} > E_fit_max=250.0 should have w=0.0, got w={w}")
+
+    def test_E_fit_max_does_not_affect_comp_file(self):
+        r = _run_main(self.tmpdir,
+                      '--mode', 'test.states',
+                      '--mol_name', 'H2-16O',
+                      '--file_exp_name', 'exp.txt',
+                      '--E_fit_max', '250.0')
+        self.assertEqual(r.returncode, 0, msg=r.stderr)
+        out_dir = os.path.join(self.tmpdir, 'output', 'H2-16O')
+        comp_files = [f for f in os.listdir(out_dir) if f.startswith('comp')]
+        self.assertTrue(len(comp_files) >= 1)
+        comp_content = _read_file(os.path.join(out_dir, comp_files[0]))
+        self.assertIn('300.0', comp_content, "comp file should still contain all levels")
+
+
 class TestE2EN2OBasic(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()

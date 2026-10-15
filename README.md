@@ -162,6 +162,7 @@ python main.py [options]
 | `--dE_th` | per-transition experimental-error threshold (cm⁻¹) separating high-precision (`dE <= dE_th`) from low-precision levels; only used with `--rel_weights` | `0.001` |
 | `--hp_weight` | weight assigned to high-precision levels; only used with `--rel_weights` | `1.0` |
 | `--E_cut` | cut the `ens_Yur_format.*` fit-input files at this energy (cm⁻¹): levels with `E > E_cut` are omitted; all other output files are unaffected | off |
+| `--E_fit_max` | maximum energy (cm⁻¹) for the fit: levels with `E > E_fit_max` in the `ens_Yur_format.*` files get zero weight; all other output files are unaffected | off |
 
 #### Example
 
