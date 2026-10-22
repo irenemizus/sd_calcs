@@ -1,5 +1,6 @@
-import states
 import re
+
+from . import states
 
 
 class Format:

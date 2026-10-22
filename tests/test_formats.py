@@ -5,8 +5,8 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import formats
-import states
+import sdcalcs.formats as formats
+import sdcalcs.states as states
 
 AU_TO_CM = 219474.624
 

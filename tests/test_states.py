@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import states
+import sdcalcs.states as states
 
 
 class TestState(unittest.TestCase):

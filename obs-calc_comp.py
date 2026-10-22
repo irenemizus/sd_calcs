@@ -1,11 +1,10 @@
 import argparse
 import copy
-import math
 import os
 
-import formats
-import main
-import states
+from sdcalcs import formats
+from sdcalcs import states
+from sdcalcs.comparison import exp_number_det
 
 
 class ComparedState:
@@ -96,7 +95,7 @@ def do_comparison(states_comp, states_calc_old, comp_by_qns, eps=0.0, obs_calc_c
                     break
         else:
             # searching for the best fit among the old calculated energies
-            sc_fit, compared_state = main.exp_number_det(states_old_cpy, sc, eps, obs_calc_comp)
+            sc_fit, compared_state = exp_number_det(states_old_cpy, sc, eps, obs_calc_comp)
             if sc_fit:
                 states_old_cpy.remove_item(sc_fit)  # removing the found calculated energy
                 E_old_best = compared_state.E_calc

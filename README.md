@@ -48,10 +48,15 @@ sd separately for the high-precision and low-precision groups (see the
 
 ```
 .
-├── main.py               # main entry point: obs-vs-calc matching + sd
-├── obs-calc_comp.py      # add-on: compare previous (HITRAN/ExoMol) calc data vs the current comparison
-├── states.py             # data model (State, States, quantum numbers, symmetries, statuses, comparison lists)
-├── formats.py            # input-file parsers (fort.14, ExoMol, HITRAN, MARVEL exp, RITZ exp)
+├── sdcalcs/              # the program logic as an importable Python module
+│   ├── __init__.py       #   public API (re-exports everything below)
+│   ├── states.py         #   data model (State, States, quantum numbers, symmetries, statuses, comparison lists)
+│   ├── formats.py        #   input-file parsers (fort.14, ExoMol, HITRAN, MARVEL exp, RITZ exp)
+│   ├── comparison.py     #   obs-vs-calc matching (exp_number_det, do_comparison)
+│   ├── sd.py             #   sd calculation, reliability weighting, outlier re-marking, sd file writing
+│   └── utils.py          #   helpers (output file-name generation)
+├── main.py               # CLI entry point: obs-vs-calc matching + sd (uses the sdcalcs module)
+├── obs-calc_comp.py      # CLI add-on: compare previous (HITRAN/ExoMol) calc data vs the current comparison
 ├── README.md             # this file
 ├── input/                # input data, one sub-directory per molecule (git-ignored)
 │   ├── H2-16O/           #   fort.14-* files + observed-data file
@@ -60,8 +65,43 @@ sd separately for the high-precision and low-precision groups (see the
 └── output/               # generated results, one sub-directory per molecule (git-ignored)
 ```
 
-> `input/` and `output/` are not tracked in git. The program reads from
-> `input/<mol_name>/` and writes to `output/<mol_name>/`.
+> `input/` and `output/` are not tracked in git. The CLI scripts read from
+> `input/<mol_name>/` and write to `output/<mol_name>/`.
+
+## Using `sdcalcs` as a module
+
+All the program logic lives in the `sdcalcs` package; the CLI scripts
+(`main.py`, `obs-calc_comp.py`) are thin wrappers over it. From another
+project you can import the building blocks directly:
+
+```python
+from sdcalcs import (
+    CalcFormat, ExpFormatN2O,          # input-file parsers
+    do_comparison,                     # obs-vs-calc matching
+    assign_precision_weights,          # uncertainty-based reliability weights
+    calc_sd, write_sds,                # sd calculation / writing
+    outliers_by_N_out_rel,             # re-mark the worst N% of levels as outliers
+)
+
+# Parse a calculated (fort.14-like) file and an observed (MARVEL-like N2O) file
+states_calc = CalcFormat('fort.14.0', Ezero=2370.6426).parse_file()
+states_exp = ExpFormatN2O('n2o_levels.txt', J_list=['0'], J_place=4).parse_file()
+
+# Match the two sets with eps = 0.0042 cm-1
+comp = do_comparison(states_calc, states_exp, eps=0.0042)
+
+# Per-band standard deviations: [low, middle, high]
+sds = calc_sd(list(comp), E_tr_l=15000.0, E_tr_h=25000.0, use_rel=False)
+for sd in sds:
+    print(sd.sd, sd.Nsd, sd.sd_out, sd.Nout)
+
+# Write them to an open file object
+with open('sds.txt', 'w') as f:
+    write_sds(f, sds, use_rel=False)
+```
+
+Everything the CLI does is available as module calls — see `sdcalcs/__init__.py`
+for the full public API.
 
 ## How the matching works
 
