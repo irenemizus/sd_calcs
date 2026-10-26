@@ -50,7 +50,7 @@ class CalcFormat (Format):
 
 
 class ExpFormat (Format):
-    def __init__(self, format_name, file_name, J_list, J_place, sep='\s+'):
+    def __init__(self, format_name, file_name, J_list, J_place, sep='\\s+'):
         Format.__init__(self, format_name)
         self.__file_name = file_name
         self.__J_list = J_list
